@@ -177,6 +177,29 @@ export async function getNoteSession(id: number): Promise<NoteSession | undefine
   return db().noteSessions.get(id);
 }
 
+export async function deleteNoteSession(id: number): Promise<void> {
+  await db().transaction(
+    "rw",
+    db().noteSessions,
+    db().quizzes,
+    db().quizAttempts,
+    async () => {
+      await db().noteSessions.delete(id);
+      const orphanQuizzes = await db()
+        .quizzes.where("sourceNoteId")
+        .equals(id)
+        .toArray();
+      const orphanIds = orphanQuizzes
+        .map((q) => q.id)
+        .filter((qid): qid is number => qid != null);
+      if (orphanIds.length > 0) {
+        await db().quizzes.bulkDelete(orphanIds);
+        await db().quizAttempts.where("quizId").anyOf(orphanIds).delete();
+      }
+    },
+  );
+}
+
 // ----- Quizzes -----
 
 export async function saveQuiz(input: {
