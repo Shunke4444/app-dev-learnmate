@@ -247,7 +247,16 @@ html.lm-no-scrollbar body::-webkit-scrollbar {
   .lm-reveal,
   .lm-grid,
   .lm-shine,
-  [class*="animate-[lm-"] {
+  .lm-rise,
+  .lm-rise-1,
+  .lm-rise-2,
+  .lm-rise-3,
+  .lm-rise-4,
+  .lm-drift,
+  .lm-pulse-ring,
+  .lm-wave-bar,
+  [class*="animate-[lm-"],
+  [class*="lm-aurora"] {
     animation: none !important;
     transition: none !important;
     transform: none !important;

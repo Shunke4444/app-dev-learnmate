@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 
 import {
@@ -969,13 +970,6 @@ function HowItWorks() {
 }
 
 /* ───────────────────────── screens / mockups ───────────────────────── */
-
-type ScreenCard = {
-  title: string;
-  badge: string;
-  badgeColor: string;
-  body: ReactNode;
-};
 
 function PhoneShell({ children, accent }: { children: ReactNode; accent: string }) {
   return (
