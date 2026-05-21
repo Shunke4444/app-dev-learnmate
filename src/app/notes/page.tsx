@@ -13,6 +13,7 @@ import {
   Save,
   Search,
   Sparkles,
+  Trash2,
   Wand2,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
@@ -27,6 +28,7 @@ import { onWhisperProgress, type WhisperProgress } from "@/lib/voice/whisper";
 import { useMicLevel } from "@/lib/voice/waveform";
 import {
   createNoteSession,
+  deleteNoteSession,
   listNoteSessions,
   updateNoteSession,
   type NoteSession,
@@ -99,6 +101,22 @@ export default function NotesPage() {
       setSessions(all);
     } catch (e) {
       console.warn("Dexie list failed:", e);
+    }
+  }
+
+  async function handleDelete(s: NoteSession) {
+    if (s.id == null) return;
+    const ok = window.confirm(`Delete "${s.title}"? This cannot be undone.`);
+    if (!ok) return;
+    try {
+      await deleteNoteSession(s.id);
+      if (active?.id === s.id) {
+        stopCapture();
+        setActive(null);
+      }
+      await refreshSessions();
+    } catch (e) {
+      setErrorNote(`Couldn't delete: ${(e as Error).message}`);
     }
   }
 
@@ -463,6 +481,17 @@ export default function NotesPage() {
                     <span className="ml-auto rounded-full bg-bg/35 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ring-white/5">
                       {it.subject}
                     </span>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${it.title}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(it);
+                      }}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-bg/35 text-muted opacity-0 ring-1 ring-white/5 transition group-hover:opacity-100 hover:bg-red/20 hover:text-red focus:opacity-100"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                   <h3 className="relative mt-3 text-lg font-semibold tracking-tight">
                     {it.title}
