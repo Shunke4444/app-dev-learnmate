@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, Paperclip, Send, Sparkles } from "lucide-react";
+import { FileText, Loader2, Mic, Paperclip, Send, Sparkles, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Mascot } from "@/components/Mascot";
 import { Markdown } from "@/components/Markdown";
@@ -12,6 +12,11 @@ import {
   pruneEmptyMessages,
   type Chat,
 } from "@/lib/db/dexie";
+import {
+  attachToMessage,
+  parseFile,
+  type ParsedAttachment,
+} from "@/lib/attachments/parse";
 
 type Msg = {
   id?: number;
@@ -33,6 +38,23 @@ const starters = [
   "Help me outline my essay intro",
 ];
 
+// Strip attachment blocks out of a stored user message so the bubble shows the
+// natural question + a chip per file, instead of dumping raw PDF text inline.
+function splitUserContent(text: string): {
+  body: string;
+  chips: { name: string; meta: string }[];
+} {
+  const re = /\n*--- attachment: (.+?) \(([^)]+)\) ---\n[\s\S]*?\n--- end attachment ---\n*/g;
+  const chips: { name: string; meta: string }[] = [];
+  const body = text
+    .replace(re, (_, name: string, meta: string) => {
+      chips.push({ name, meta });
+      return "";
+    })
+    .trim();
+  return { body, chips };
+}
+
 type ErrorState =
   | { kind: "none" }
   | { kind: "rate_limited" }
@@ -44,9 +66,12 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<ErrorState>({ kind: "none" });
+  const [attachments, setAttachments] = useState<ParsedAttachment[]>([]);
+  const [attaching, setAttaching] = useState(false);
   const chatRef = useRef<Chat | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Hydrate from Dexie on mount.
   useEffect(() => {
@@ -79,12 +104,40 @@ export default function ChatPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setAttaching(true);
+    setError({ kind: "none" });
+    try {
+      const parsed: ParsedAttachment[] = [];
+      for (const f of Array.from(files)) {
+        try {
+          parsed.push(await parseFile(f));
+        } catch (e) {
+          setError({
+            kind: "generic",
+            message: `Couldn't read "${f.name}": ${(e as Error).message}`,
+          });
+        }
+      }
+      if (parsed.length) setAttachments((cur) => [...cur, ...parsed]);
+    } finally {
+      setAttaching(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function removeAttachment(idx: number) {
+    setAttachments((cur) => cur.filter((_, i) => i !== idx));
+  }
+
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || streaming) return;
+    if ((!trimmed && attachments.length === 0) || streaming) return;
     setError({ kind: "none" });
 
-    const userMsg: Msg = { role: "user", content: trimmed };
+    const composed = attachToMessage(trimmed || "Read the attached file(s).", attachments);
+    const userMsg: Msg = { role: "user", content: composed };
     const placeholder: Msg = { role: "assistant", content: "", pending: true };
 
     // Optimistic UI.
@@ -95,11 +148,13 @@ export default function ChatPage() {
     const chat = chatRef.current;
     if (chat?.id != null) {
       try {
-        await appendMessage(chat.id, "user", trimmed);
+        await appendMessage(chat.id, "user", composed);
       } catch (err) {
         console.warn("Dexie write failed:", err);
       }
     }
+    // Clear attachments after they're folded into the outgoing turn.
+    setAttachments([]);
 
     // Build the conversation history sent to the model (drop greeting if it's the only thing).
     const history = [...messages, userMsg]
@@ -281,7 +336,30 @@ export default function ChatPage() {
                     }
                   >
                     {isUser ? (
-                      m.content
+                      (() => {
+                        const { body, chips } = splitUserContent(m.content);
+                        return (
+                          <>
+                            {chips.length > 0 && (
+                              <div className="mb-1.5 flex flex-wrap gap-1">
+                                {chips.map((c, ci) => (
+                                  <span
+                                    key={ci}
+                                    className="inline-flex items-center gap-1 rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-black/20"
+                                  >
+                                    <FileText size={10} />
+                                    <span className="max-w-[160px] truncate">{c.name}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {body ||
+                              (chips.length > 0 ? (
+                                <span className="italic text-black/70">[attachments]</span>
+                              ) : null)}
+                          </>
+                        );
+                      })()
                     ) : m.content ? (
                       <Markdown>{m.content}</Markdown>
                     ) : m.pending ? (
@@ -334,6 +412,41 @@ export default function ChatPage() {
           </div>
         )}
 
+        {attachments.length > 0 && (
+          <div className="lm-rise flex min-w-0 flex-wrap gap-1.5">
+            {attachments.map((a, i) => (
+              <span
+                key={`${a.name}-${i}`}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-bg/45 px-2.5 py-1 text-[11px] text-foreground/90 ring-1 ring-white/5"
+              >
+                <FileText size={11} className="text-teal" />
+                <span className="max-w-[180px] truncate">{a.name}</span>
+                <span className="text-[10px] text-muted">
+                  {a.kind}
+                  {a.truncated ? " · trunc." : ""}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${a.name}`}
+                  onClick={() => removeAttachment(i)}
+                  className="rounded p-0.5 text-muted hover:bg-white/10 hover:text-foreground"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          accept=".txt,.md,.markdown,.csv,.tsv,.json,.xml,.yaml,.yml,.html,.htm,.log,.ini,.conf,.sql,.py,.js,.ts,.tsx,.jsx,.css,.sh,.pdf,application/pdf,text/*"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+
         <form
           className="lm-rise lm-rise-2 flex min-w-0 items-end gap-2"
           onSubmit={(e) => {
@@ -345,9 +458,15 @@ export default function ChatPage() {
             <button
               type="button"
               aria-label="Attach"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted hover:bg-white/5 hover:text-foreground sm:h-10 sm:w-10"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={attaching || streaming}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted hover:bg-white/5 hover:text-foreground disabled:opacity-50 sm:h-10 sm:w-10"
             >
-              <Paperclip size={17} />
+              {attaching ? (
+                <Loader2 size={17} className="animate-spin" />
+              ) : (
+                <Paperclip size={17} />
+              )}
             </button>
             <input
               value={draft}

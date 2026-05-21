@@ -16,7 +16,10 @@ import { Waveform } from "@/components/Waveform";
 import {
   createRecognition,
   isSupported as isSttSupported,
+  isWebSpeechSupported,
 } from "@/lib/voice/recognition";
+import { loadPreferredEngine, rememberEngine } from "@/lib/voice/engine";
+import { onWhisperProgress, type WhisperProgress } from "@/lib/voice/whisper";
 import { cancelSpeech, isTtsSupported, speak } from "@/lib/voice/tts";
 import { useMicLevel } from "@/lib/voice/waveform";
 
@@ -42,12 +45,16 @@ export default function TalkPage() {
   const [supportNote] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     if (!isSttSupported())
-      return "Voice listening isn't supported in this browser. Try Chrome, Edge, or Safari.";
+      return "Voice listening isn't supported here — no microphone API available.";
+    if (!isWebSpeechSupported())
+      return "Cloud voice unavailable in this browser — using local Whisper. First use downloads ~40MB.";
     if (!isTtsSupported())
       return "Text-to-speech isn't available — replies will be text-only here.";
     return null;
   });
   const [errorNote, setErrorNote] = useState<string | null>(null);
+  const [engine, setEngine] = useState<"web-speech" | "whisper" | null>(null);
+  const [whisperStatus, setWhisperStatus] = useState<WhisperProgress | null>(null);
 
   const recRef = useRef<ReturnType<typeof createRecognition> | null>(null);
   const sendingRef = useRef(false);
@@ -59,7 +66,9 @@ export default function TalkPage() {
   }, [lines]);
 
   useEffect(() => {
+    const off = onWhisperProgress((p) => setWhisperStatus(p));
     return () => {
+      off();
       recRef.current?.stop();
       cancelSpeech();
     };
@@ -158,6 +167,7 @@ export default function TalkPage() {
     if (!recRef.current) {
       recRef.current = createRecognition({
         continuous: false,
+        engine: loadPreferredEngine(),
         onPartial: (t) => setInterim(t),
         onFinal: (t) => {
           setInterim("");
@@ -171,10 +181,22 @@ export default function TalkPage() {
           if (code === "no-speech") return;
           if (code === "not-allowed" || code === "service-not-allowed")
             setErrorNote("Mic permission denied. Allow microphone access and retry.");
+          else if (code === "network")
+            setErrorNote(
+              "Voice recognition needs Google's servers, which Brave/Arc block. Open this page in Chrome or Edge.",
+            );
+          else if (code === "audio-capture")
+            setErrorNote("No microphone detected. Plug one in or check OS audio settings.");
+          else if (code === "language-not-supported")
+            setErrorNote("Selected language isn't supported by your browser.");
           else setErrorNote(`Voice error: ${code}`);
         },
         onEnd: () => {
           setInterim("");
+        },
+        onEngineChange: (e) => {
+          setEngine(e);
+          rememberEngine(e);
         },
       });
     }
@@ -291,6 +313,30 @@ export default function TalkPage() {
               End session
             </button>
 
+            {engine && (
+              <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-bg/35 px-2.5 py-1 text-[10px] uppercase tracking-wider text-muted ring-1 ring-white/5">
+                <span
+                  className={
+                    "h-1.5 w-1.5 rounded-full " +
+                    (engine === "whisper" ? "bg-purple" : "bg-teal")
+                  }
+                />
+                {engine === "whisper" ? "Local Whisper" : "Cloud (Web Speech)"}
+              </p>
+            )}
+            {whisperStatus?.kind === "downloading" && (
+              <p className="mt-3 max-w-[52ch] rounded-2xl bg-bg/35 px-3 py-2 text-[11px] text-muted ring-1 ring-white/5">
+                Loading voice model — {whisperStatus.percent}%
+                <span className="ml-2 text-[10px] opacity-70">
+                  {whisperStatus.file}
+                </span>
+              </p>
+            )}
+            {whisperStatus?.kind === "transcribing" && (
+              <p className="mt-3 max-w-[52ch] rounded-2xl bg-bg/35 px-3 py-2 text-[11px] text-muted ring-1 ring-white/5">
+                Transcribing…
+              </p>
+            )}
             {supportNote && (
               <p className="mt-4 max-w-[52ch] rounded-2xl bg-bg/35 px-3 py-2 text-[11px] text-muted ring-1 ring-white/5">
                 {supportNote}

@@ -20,7 +20,10 @@ import { Waveform } from "@/components/Waveform";
 import {
   createRecognition,
   isSupported as isSttSupported,
+  isWebSpeechSupported,
 } from "@/lib/voice/recognition";
+import { loadPreferredEngine, rememberEngine } from "@/lib/voice/engine";
+import { onWhisperProgress, type WhisperProgress } from "@/lib/voice/whisper";
 import { useMicLevel } from "@/lib/voice/waveform";
 import {
   createNoteSession,
@@ -66,12 +69,16 @@ export default function NotesPage() {
   const [supportNote, setSupportNote] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     if (!isSttSupported())
-      return "Voice capture isn't supported in this browser. Try Chrome, Edge, or Safari — or type your notes manually.";
+      return "Voice capture isn't supported here — no microphone API available. Type notes manually.";
+    if (!isWebSpeechSupported())
+      return "Cloud voice unavailable — using local Whisper. First use downloads ~40MB.";
     return null;
   });
   const [errorNote, setErrorNote] = useState<string | null>(null);
   const [aiAction, setAiAction] = useState<AiAction>(null);
   const [error, setError] = useState<ErrorState>({ kind: "none" });
+  const [engine, setEngine] = useState<"web-speech" | "whisper" | null>(null);
+  const [whisperStatus, setWhisperStatus] = useState<WhisperProgress | null>(null);
 
   const recRef = useRef<ReturnType<typeof createRecognition> | null>(null);
   const liveTranscriptRef = useRef("");
@@ -79,7 +86,9 @@ export default function NotesPage() {
 
   useEffect(() => {
     refreshSessions();
+    const off = onWhisperProgress((p) => setWhisperStatus(p));
     return () => {
+      off();
       recRef.current?.stop();
     };
   }, []);
@@ -119,6 +128,7 @@ export default function NotesPage() {
     if (!recRef.current) {
       recRef.current = createRecognition({
         continuous: true,
+        engine: loadPreferredEngine(),
         onPartial: (t) => setInterim(t),
         onFinal: async (t) => {
           if (!t) return;
@@ -138,10 +148,22 @@ export default function NotesPage() {
           if (code === "no-speech") return;
           if (code === "not-allowed" || code === "service-not-allowed")
             setErrorNote("Mic permission denied. Allow microphone access and retry.");
+          else if (code === "network")
+            setErrorNote(
+              "Voice recognition needs Google's servers, which Brave/Arc block. Open this page in Chrome or Edge.",
+            );
+          else if (code === "audio-capture")
+            setErrorNote("No microphone detected. Plug one in or check OS audio settings.");
+          else if (code === "language-not-supported")
+            setErrorNote("Selected language isn't supported by your browser.");
           else setErrorNote(`Voice error: ${code}`);
           setCapturing(false);
         },
         onEnd: () => setInterim(""),
+        onEngineChange: (e) => {
+          setEngine(e);
+          rememberEngine(e);
+        },
       });
     }
     liveTranscriptRef.current = active.transcript ?? "";
@@ -308,6 +330,8 @@ export default function NotesPage() {
             error={error}
             errorNote={errorNote}
             supportNote={supportNote}
+            engine={engine}
+            whisperStatus={whisperStatus}
             onClose={() => {
               stopCapture();
               setActive(null);
@@ -490,6 +514,8 @@ function ActiveSessionPanel(props: {
   error: ErrorState;
   errorNote: string | null;
   supportNote: string | null;
+  engine: "web-speech" | "whisper" | null;
+  whisperStatus: WhisperProgress | null;
   onClose: () => void;
 }) {
   const s = props.session;
@@ -641,6 +667,27 @@ function ActiveSessionPanel(props: {
           {props.supportNote && !props.errorNote && (
             <div className="rounded-2xl bg-bg/35 px-3 py-2.5 text-[11px] text-muted ring-1 ring-white/5">
               {props.supportNote}
+            </div>
+          )}
+          {props.engine && (
+            <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-bg/35 px-2.5 py-1 text-[10px] uppercase tracking-wider text-muted ring-1 ring-white/5">
+              <span
+                className={
+                  "h-1.5 w-1.5 rounded-full " +
+                  (props.engine === "whisper" ? "bg-purple" : "bg-teal")
+                }
+              />
+              {props.engine === "whisper" ? "Local Whisper" : "Cloud (Web Speech)"}
+            </div>
+          )}
+          {props.whisperStatus?.kind === "downloading" && (
+            <div className="rounded-2xl bg-bg/35 px-3 py-2.5 text-[11px] text-muted ring-1 ring-white/5">
+              Loading voice model — {props.whisperStatus.percent}%
+            </div>
+          )}
+          {props.whisperStatus?.kind === "transcribing" && (
+            <div className="rounded-2xl bg-bg/35 px-3 py-2.5 text-[11px] text-muted ring-1 ring-white/5">
+              Transcribing…
             </div>
           )}
 
