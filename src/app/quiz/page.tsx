@@ -74,8 +74,6 @@ export default function QuizPage() {
           setError({ kind: "rate_limited" });
         } else if (payload.error === "missing_key") {
           setError({ kind: "missing_key" });
-        } else if (res.status === 503) {
-          setError({ kind: "missing_key" });
         } else {
           setError({
             kind: "generic",
