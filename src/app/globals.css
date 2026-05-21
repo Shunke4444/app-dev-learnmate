@@ -1,26 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0b0f0e;
+  --surface: #15191a;
+  --surface2: #1e2422;
+  --foreground: #ffffff;
+  --muted: #8a938f;
+
+  --teal: #34e0c4;
+  --lime: #c8f65d;
+  --purple: #c9a7f5;
+  --pink: #f7b8d2;
+  --blue: #3b6fe0;
+  --green: #5bd75b;
+  --red: #e0584f;
+
+  --radius-card: 24px;
+  --shadow-soft: 0 12px 50px rgba(0, 0, 0, 0.45);
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface2);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-muted: var(--muted);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-teal: var(--teal);
+  --color-lime: var(--lime);
+  --color-purple: var(--purple);
+  --color-pink: var(--pink);
+  --color-blue: var(--blue);
+  --color-green: var(--green);
+  --color-red: var(--red);
+
+  --radius-card: var(--radius-card);
+  --shadow-soft: var(--shadow-soft);
+
+  --font-sans: var(--font-brand);
+  --color-foreground: var(--foreground);
 }
 
 body {
-  background: var(--background);
+  background: var(--bg);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-brand), ui-sans-serif, system-ui, -apple-system,
+    Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--teal) 35%, transparent);
 }
