@@ -55,3 +55,110 @@ body {
 ::selection {
   background: color-mix(in oklab, var(--teal) 35%, transparent);
 }
+
+/* ===== Landing page motion + utilities ===== */
+@keyframes lm-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+@keyframes lm-bar {
+  0%, 100% { transform: scaleY(0.18); }
+  50%      { transform: scaleY(1); }
+}
+@keyframes lm-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-14px); }
+}
+@keyframes lm-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.08); }
+}
+@keyframes lm-spin-slow {
+  to { transform: rotate(360deg); }
+}
+@keyframes lm-grid-pan {
+  to { background-position: 80px 80px; }
+}
+@keyframes lm-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes lm-pop {
+  0%   { transform: translateY(6px) scale(0.96); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes lm-fade-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.lm-reveal {
+  opacity: 1;
+  animation: lm-fade-up 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  will-change: opacity, transform;
+}
+
+.lm-noise {
+  background-image:
+    radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+.lm-grid {
+  background-image:
+    linear-gradient(rgba(52,224,196,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(52,224,196,0.07) 1px, transparent 1px);
+  background-size: 80px 80px;
+  animation: lm-grid-pan 22s linear infinite;
+}
+
+.lm-text-grad {
+  background: linear-gradient(180deg, #ffffff 0%, #b9c1bd 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+}
+
+.lm-text-teal-grad {
+  background: linear-gradient(120deg, #34E0C4 0%, #C8F65D 60%, #C9A7F5 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+}
+
+.lm-shine {
+  background: linear-gradient(
+    100deg,
+    rgba(255,255,255,0) 30%,
+    rgba(255,255,255,0.15) 50%,
+    rgba(255,255,255,0) 70%
+  );
+  background-size: 200% 100%;
+  animation: lm-shimmer 3.2s linear infinite;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+html.lm-no-scrollbar,
+html.lm-no-scrollbar body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html.lm-no-scrollbar::-webkit-scrollbar,
+html.lm-no-scrollbar body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lm-reveal,
+  .lm-grid,
+  .lm-shine,
+  [class*="animate-[lm-"] {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
