@@ -1,11 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Book,
+  ChevronsLeft,
+  ChevronsRight,
   FileText,
   Home,
   LogOut,
@@ -43,10 +45,12 @@ function SidebarItem({
   href,
   label,
   icon: Icon,
+  collapsed,
 }: {
   href: string;
   label: string;
   icon: typeof Home;
+  collapsed: boolean;
 }) {
   const pathname = usePathname() ?? "";
   const active = isActive(pathname, href);
@@ -54,11 +58,13 @@ function SidebarItem({
   return (
     <Link
       href={href}
+      title={collapsed ? label : undefined}
       className={
         "group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition " +
         (active
           ? "bg-surface2/80 text-foreground ring-1 ring-white/10 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)]"
-          : "text-muted hover:bg-surface/50 hover:text-foreground ring-1 ring-transparent")
+          : "text-muted hover:bg-surface/50 hover:text-foreground ring-1 ring-transparent") +
+        (collapsed ? " justify-center px-2" : "")
       }
       aria-current={active ? "page" : undefined}
     >
@@ -78,7 +84,7 @@ function SidebarItem({
       >
         <Icon size={18} />
       </span>
-      <span>{label}</span>
+      {!collapsed && <span>{label}</span>}
     </Link>
   );
 }
@@ -233,10 +239,40 @@ function useAuthGuard() {
   return { ready: hydrated, user };
 }
 
+const COLLAPSE_KEY = "lm:sidebar-collapsed";
+
+function readCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(COLLAPSE_KEY) === "1";
+  } catch {
+    // ignore — strict privacy mode
+    return false;
+  }
+}
+
+function useSidebarCollapsed(): [boolean, (next: boolean) => void] {
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return readCollapsed();
+  });
+
+  function set(next: boolean) {
+    setCollapsed(next);
+    try {
+      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }
+
+  return [collapsed, set];
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
   const label = pageLabel(pathname);
   const { ready, user } = useAuthGuard();
+  const [collapsed, setCollapsed] = useSidebarCollapsed();
 
   if (!ready || !user) {
     return (
@@ -256,31 +292,57 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="pointer-events-none fixed inset-0 lm-aurora"
       />
 
-      <aside className="relative z-10 hidden w-[270px] shrink-0 flex-col border-r border-white/5 bg-surface/30 p-5 backdrop-blur-xl lg:flex">
-        <Link href="/home" className="flex items-center gap-3 rounded-2xl px-2 py-2">
+      <aside
+        className={
+          "relative z-10 hidden shrink-0 flex-col border-r border-white/5 bg-surface/30 p-5 backdrop-blur-xl transition-[width] duration-200 ease-out lg:flex " +
+          (collapsed ? "w-[84px]" : "w-[270px]")
+        }
+      >
+        <Link
+          href="/home"
+          title={collapsed ? "LearnMate" : undefined}
+          className={
+            "flex items-center gap-3 rounded-2xl px-2 py-2 " +
+            (collapsed ? "justify-center" : "")
+          }
+        >
           <MascotMini />
-          <div>
-            <div className="text-sm font-semibold tracking-tight">LearnMate</div>
-            <div className="text-[11px] text-muted">Study companion</div>
-          </div>
+          {!collapsed && (
+            <div>
+              <div className="text-sm font-semibold tracking-tight">LearnMate</div>
+              <div className="text-[11px] text-muted">Study companion</div>
+            </div>
+          )}
         </Link>
 
-        <div className="mt-2 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-          Workspace
-        </div>
-        <div className="mt-2 flex flex-col gap-1">
+        {!collapsed && (
+          <div className="mt-7 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+            Workspace
+          </div>
+        )}
+        <div className={"flex flex-col gap-1 " + (collapsed ? "mt-7" : "mt-2")}>
           {nav.map((item) => (
             <SidebarItem
               key={item.href}
               href={item.href}
               label={item.label}
               icon={item.icon}
+              collapsed={collapsed}
             />
           ))}
         </div>
 
         <div className="mt-auto pt-6">
-          <UserMenu />
+          <button
+            type="button"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setCollapsed(!collapsed)}
+            className="mb-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-2xl bg-surface/55 text-xs font-semibold text-muted ring-1 ring-white/5 hover:bg-surface hover:text-foreground"
+          >
+            {collapsed ? <ChevronsRight size={15} /> : <ChevronsLeft size={15} />}
+            {!collapsed && <span>Collapse</span>}
+          </button>
+          <UserMenu compact={collapsed} />
         </div>
       </aside>
 
