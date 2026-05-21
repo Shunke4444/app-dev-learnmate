@@ -57,28 +57,16 @@ export async function POST(request: Request) {
   ];
 
   try {
-    const { data, model } = await jsonChat<unknown>({
+    const { data: validated, model } = await jsonChat<QuizPayload>({
       job: "quiz",
       messages,
       schema: QUIZ_JSON_SCHEMA,
       signal: request.signal,
+      validate: (candidate) => QuizPayload.safeParse(candidate).success,
     });
 
-    const validated = QuizPayload.safeParse(data);
-    if (!validated.success) {
-      return Response.json(
-        {
-          error: "bad_output",
-          message:
-            "Model returned JSON that didn't match the quiz schema: " +
-            (validated.error.issues[0]?.message ?? "unknown"),
-        },
-        { status: 502 },
-      );
-    }
-
     return Response.json(
-      { ...validated.data, model },
+      { ...validated, model },
       { headers: { "X-LearnMate-Model": model } },
     );
   } catch (err) {
@@ -86,12 +74,18 @@ export async function POST(request: Request) {
       return new Response(null, { status: 499 });
     }
     if (err instanceof OpenRouterError) {
+      const exhausted = err.retriable; // last error was retriable → whole chain failed retriably
       const status =
         err.status === 429 ? 429 : err.status >= 500 ? 503 : err.status;
       return Response.json(
         {
-          error: err.status === 429 ? "rate_limited" : "upstream",
+          error: exhausted
+            ? "chain_exhausted"
+            : err.status === 429
+              ? "rate_limited"
+              : "upstream",
           message: err.message,
+          lastStatus: err.status,
         },
         { status },
       );

@@ -14,6 +14,49 @@ export class OpenRouterError extends Error {
   }
 }
 
+// Some free models wrap JSON in markdown fences or add a preamble before the
+// JSON body. Try a balanced-brace extraction as a fallback to strict JSON.parse.
+function tryParseJson<T>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    // continue
+  }
+  const start = raw.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(raw.slice(start, i + 1)) as T;
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function authHeaders(): Record<string, string> {
   const key = process.env.OPENROUTER_API_KEY?.trim();
   if (!key) throw new OpenRouterError("OPENROUTER_API_KEY missing", 500, false);
@@ -97,6 +140,7 @@ export async function jsonChat<T = unknown>(opts: {
   messages: ChatMessage[];
   schema: Readonly<{ name: string; strict?: boolean; schema: object }>;
   signal: AbortSignal;
+  validate?: (data: T) => boolean;
 }): Promise<{ data: T; model: string }> {
   const chain = modelsForJob(opts.job);
   let lastErr: OpenRouterError | null = null;
@@ -146,10 +190,8 @@ export async function jsonChat<T = unknown>(opts: {
         continue;
       }
 
-      try {
-        const data = JSON.parse(raw) as T;
-        return { data, model };
-      } catch {
+      const data = tryParseJson<T>(raw);
+      if (data == null) {
         lastErr = new OpenRouterError(
           `model ${model} returned non-JSON content`,
           502,
@@ -157,6 +199,15 @@ export async function jsonChat<T = unknown>(opts: {
         );
         continue;
       }
+      if (opts.validate && !opts.validate(data)) {
+        lastErr = new OpenRouterError(
+          `model ${model} returned JSON that failed validation`,
+          502,
+          true,
+        );
+        continue;
+      }
+      return { data, model };
     } catch (err) {
       if ((err as { name?: string })?.name === "AbortError") throw err;
       if (err instanceof OpenRouterError) {

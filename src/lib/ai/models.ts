@@ -35,10 +35,15 @@ export const JOB_MODELS: Record<Job, { primary: string; fallbacks: string[] }> =
     ],
   },
   quiz: {
-    primary: "openai/gpt-oss-120b:free",
+    // Re-ordered 2026-05-21 per QA: gpt-oss-120b was hitting rate limits as the primary.
+    // Qwen handles JSON-schema strict reliably and has a generous free quota; promoted to primary.
+    // llama-3.3-70b + deepseek-v4-flash added (both proven from chat fallback chain).
+    primary: "qwen/qwen3-next-80b-a3b-instruct:free",
     fallbacks: [
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "openai/gpt-oss-120b:free",
       "google/gemma-4-31b-it:free",
-      "qwen/qwen3-next-80b-a3b-instruct:free",
+      "deepseek/deepseek-v4-flash:free",
       "openrouter/free",
     ],
   },

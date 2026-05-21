@@ -12,6 +12,7 @@ type ErrorState =
   | { kind: "none" }
   | { kind: "rate_limited" }
   | { kind: "missing_key" }
+  | { kind: "chain_exhausted" }
   | { kind: "generic"; message: string };
 
 const TOPIC_SUGGESTIONS = [
@@ -67,17 +68,20 @@ export default function QuizPage() {
         } catch {
           // ignore
         }
-        const kind: ErrorState["kind"] =
-          payload.error === "rate_limited" || res.status === 429
-            ? "rate_limited"
-            : payload.error === "missing_key" || res.status === 503
-              ? "missing_key"
-              : "generic";
-        setError(
-          kind === "generic"
-            ? { kind, message: payload.message ?? `Error ${res.status}` }
-            : { kind },
-        );
+        if (payload.error === "chain_exhausted") {
+          setError({ kind: "chain_exhausted" });
+        } else if (payload.error === "rate_limited" || res.status === 429) {
+          setError({ kind: "rate_limited" });
+        } else if (payload.error === "missing_key") {
+          setError({ kind: "missing_key" });
+        } else if (res.status === 503) {
+          setError({ kind: "missing_key" });
+        } else {
+          setError({
+            kind: "generic",
+            message: payload.message ?? `Error ${res.status}`,
+          });
+        }
         return;
       }
 
@@ -282,6 +286,19 @@ function SetupPanel(props: {
             {props.error.kind === "rate_limited" && (
               <>
                 <strong>Bot is resting.</strong> Free model limit hit — try again in a moment.
+              </>
+            )}
+            {props.error.kind === "chain_exhausted" && (
+              <>
+                <strong>All free models are busy.</strong>{" "}
+                <span className="text-muted">Wait ~30 seconds and try again.</span>
+                <button
+                  type="button"
+                  onClick={() => props.onGenerate()}
+                  className="ml-2 rounded-xl bg-bg/45 px-2 py-1 text-[11px] font-semibold ring-1 ring-white/5 hover:bg-bg/65"
+                >
+                  Try again
+                </button>
               </>
             )}
             {props.error.kind === "missing_key" && (
