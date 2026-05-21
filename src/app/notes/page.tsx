@@ -24,7 +24,7 @@ import {
   isWebSpeechSupported,
 } from "@/lib/voice/recognition";
 import { loadPreferredEngine, rememberEngine } from "@/lib/voice/engine";
-import { onWhisperProgress, type WhisperProgress } from "@/lib/voice/whisper";
+import { onWhisperProgress, transcribeBlob, type WhisperProgress } from "@/lib/voice/whisper";
 import { useMicLevel } from "@/lib/voice/waveform";
 import {
   createNoteSession,
@@ -84,6 +84,8 @@ export default function NotesPage() {
 
   const recRef = useRef<ReturnType<typeof createRecognition> | null>(null);
   const liveTranscriptRef = useRef("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
   const { level: micLevel } = useMicLevel(capturing);
 
   useEffect(() => {
@@ -193,6 +195,55 @@ export default function NotesPage() {
     recRef.current?.stop();
     setCapturing(false);
     setInterim("");
+  }
+
+  async function handleUploadAudio(file: File) {
+    if (!file) return;
+    const MAX_MB = 25;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setErrorNote(`File too large. Max ${MAX_MB}MB.`);
+      return;
+    }
+    if (!file.type.startsWith("audio/")) {
+      setErrorNote("Pick an audio file (m4a, mp3, wav, webm, ogg).");
+      return;
+    }
+
+    let session = active;
+    if (!session) {
+      const title = window.prompt("Name this note session", file.name.replace(/\.[^.]+$/, ""));
+      if (!title) return;
+      const subject = window.prompt("Subject (e.g. Python, Biology, History)", "General") || "General";
+      try {
+        session = await createNoteSession({ title, subject });
+        setActive(session);
+        setSessions((cur) => [session!, ...cur]);
+      } catch (e) {
+        setErrorNote(`Couldn't create session: ${(e as Error).message}`);
+        return;
+      }
+    }
+
+    setUploading(true);
+    setErrorNote(null);
+    try {
+      const text = await transcribeBlob(file);
+      if (!text) {
+        setErrorNote("No speech detected in the file.");
+        return;
+      }
+      const existing = liveTranscriptRef.current || session.transcript || "";
+      const next = (existing + (existing ? "\n\n" : "") + text).trim();
+      liveTranscriptRef.current = next;
+      setActive((s) => (s ? { ...s, transcript: next } : s));
+      if (session.id != null) {
+        await updateNoteSession(session.id, { transcript: next });
+      }
+    } catch (e) {
+      setErrorNote(`Transcription failed: ${(e as Error).message}`);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function saveSession() {
@@ -350,6 +401,8 @@ export default function NotesPage() {
             supportNote={supportNote}
             engine={engine}
             whisperStatus={whisperStatus}
+            onUpload={() => fileInputRef.current?.click()}
+            uploading={uploading}
             onClose={() => {
               stopCapture();
               setActive(null);
@@ -385,13 +438,24 @@ export default function NotesPage() {
                   </button>
                   <button
                     type="button"
-                    disabled
-                    className="inline-flex items-center gap-2 rounded-2xl bg-surface/70 px-4 py-2.5 text-sm font-medium text-foreground ring-1 ring-white/5 opacity-50"
-                    title="Coming soon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-surface/70 px-4 py-2.5 text-sm font-medium text-foreground ring-1 ring-white/5 hover:bg-surface disabled:opacity-50"
                   >
-                    <Headphones size={15} />
-                    Upload audio
+                    {uploading ? <Loader2 size={15} className="animate-spin" /> : <Headphones size={15} />}
+                    {uploading ? "Transcribing…" : "Upload audio"}
                   </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="audio/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadAudio(f);
+                      e.target.value = "";
+                    }}
+                  />
                 </div>
                 {supportNote && (
                   <p className="mt-4 rounded-2xl bg-bg/35 px-3 py-2 text-[11px] text-muted ring-1 ring-white/5">
@@ -546,6 +610,8 @@ function ActiveSessionPanel(props: {
   engine: "web-speech" | "whisper" | null;
   whisperStatus: WhisperProgress | null;
   onClose: () => void;
+  onUpload?: () => void;
+  uploading?: boolean;
 }) {
   const s = props.session;
   const live = s.transcript + (props.interim ? `\n${props.interim}…` : "");
@@ -633,6 +699,15 @@ function ActiveSessionPanel(props: {
             >
               <Save size={15} />
               Save
+            </button>
+            <button
+              type="button"
+              onClick={() => props.onUpload?.()}
+              disabled={props.uploading}
+              className="inline-flex items-center gap-2 rounded-2xl bg-surface/70 px-4 py-2.5 text-sm font-medium text-foreground ring-1 ring-white/5 hover:bg-surface disabled:opacity-50"
+            >
+              {props.uploading ? <Loader2 size={15} className="animate-spin" /> : <Headphones size={15} />}
+              {props.uploading ? "Transcribing…" : "Upload audio"}
             </button>
           </div>
         </div>
