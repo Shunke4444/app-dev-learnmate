@@ -5,14 +5,12 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Bell,
   Book,
   FileText,
   Home,
   LogOut,
   MessageSquare,
   Mic,
-  Search,
   Settings,
   Sparkles,
 } from "lucide-react";
@@ -267,19 +265,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </Link>
 
-        <div className="mt-7 flex items-center gap-2 rounded-2xl bg-surface/50 px-3 py-2 ring-1 ring-white/5">
-          <Search size={15} className="text-muted" />
-          <input
-            className="w-full bg-transparent text-xs text-foreground placeholder:text-muted/80 outline-none"
-            placeholder="Search…"
-            type="search"
-          />
-          <kbd className="rounded-md bg-black/30 px-1.5 py-0.5 text-[10px] text-muted ring-1 ring-white/5">
-            ⌘K
-          </kbd>
-        </div>
-
-        <div className="mt-6 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+        <div className="mt-2 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
           Workspace
         </div>
         <div className="mt-2 flex flex-col gap-1">
@@ -314,14 +300,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
 
             <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                aria-label="Notifications"
-                className="relative inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-surface/55 text-foreground/80 ring-1 ring-white/5 hover:bg-surface"
-              >
-                <Bell size={16} />
-                <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-teal" />
-              </button>
               <UserMenu compact />
             </div>
           </div>
