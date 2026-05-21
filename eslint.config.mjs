@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     "public/sw.js",
     "public/swe-worker-*.js",
     "public/workbox-*.js",
+    // Third-party worker bundles (pdfjs-dist):
+    "public/pdf.worker.mjs",
     // Build/utility scripts:
     "scripts/**",
   ]),
