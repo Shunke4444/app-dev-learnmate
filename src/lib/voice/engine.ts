@@ -7,13 +7,9 @@ import type { EngineChoice } from "./recognition";
 const KEY = "lm:voice-engine";
 
 export function loadPreferredEngine(): EngineChoice {
-  if (typeof window === "undefined") return "auto";
-  try {
-    const v = window.localStorage.getItem(KEY);
-    if (v === "web-speech" || v === "whisper" || v === "auto") return v;
-  } catch {
-    // localStorage can throw in strict privacy modes — fall through.
-  }
+  // Always start in auto mode. The wrapper will swap to whisper transparently
+  // on network errors. Storing "web-speech" as a sticky preference caused
+  // Brave/Arc users to retry the broken cloud path on every page load.
   return "auto";
 }
 

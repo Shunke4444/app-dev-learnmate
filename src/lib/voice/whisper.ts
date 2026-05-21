@@ -61,6 +61,8 @@ async function loadTranscriber(): Promise<Transcriber> {
             total,
             percent: Math.min(100, Math.round((loaded / total) * 100)),
           });
+        } else if (data.status === "done" || data.status === "ready") {
+          emit({ kind: "ready" });
         }
       },
     },

@@ -285,15 +285,23 @@ export function createRecognition(opts: RecognitionOptions = {}): RecognitionCon
   // "auto" with web-speech available: wrap to detect network error and swap.
   let active: RecognitionController;
   let swapped = false;
+  let engineAnnounced = false;
+
+  function announce(engine: "web-speech" | "whisper") {
+    if (engineAnnounced && engine === active.engine) return;
+    engineAnnounced = true;
+    opts.onEngineChange?.(engine);
+  }
 
   const wrappedHandlers: RecognitionOptions = {
     ...opts,
     onError: (code) => {
       if (!swapped && code === "network") {
         swapped = true;
-        opts.onEngineChange?.("whisper");
+        engineAnnounced = false; // reset so whisper can announce
         const whisper = createWhisperController(opts);
         active = whisper;
+        announce("whisper");
         whisper.start();
         return;
       }
@@ -303,7 +311,7 @@ export function createRecognition(opts: RecognitionOptions = {}): RecognitionCon
 
   active = createWebSpeechController(wrappedHandlers);
   queueMicrotask(() => {
-    if (!swapped) opts.onEngineChange?.("web-speech");
+    if (!swapped) announce("web-speech");
   });
 
   return {
