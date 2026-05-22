@@ -11,6 +11,7 @@ import { hasSupabaseConfig } from "@/lib/auth/config";
 export default function WelcomePage() {
   const router = useRouter();
   const continueAsGuest = useAuth((s) => s.continueAsGuest);
+  const signInWithGoogle = useAuth((s) => s.signInWithGoogle);
   const user = useAuth((s) => s.user);
   const hydrated = useAuth((s) => s.hydrated);
   const showSocials = hasSupabaseConfig();
@@ -22,6 +23,10 @@ export default function WelcomePage() {
   function handleGuest() {
     continueAsGuest();
     router.replace("/home");
+  }
+
+  async function handleGoogle() {
+    await signInWithGoogle();
   }
 
   return (
@@ -97,8 +102,12 @@ export default function WelcomePage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 lm-rise lm-rise-4">
-                  <PillButton variant="google">Google</PillButton>
-                  <PillButton variant="facebook">Facebook</PillButton>
+                  <PillButton variant="google" type="button" onClick={handleGoogle}>
+                    Google
+                  </PillButton>
+                  <PillButton variant="facebook" disabled>
+                    Facebook
+                  </PillButton>
                 </div>
               </>
             )}

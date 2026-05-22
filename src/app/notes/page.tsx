@@ -32,7 +32,7 @@ import {
   listNoteSessions,
   updateNoteSession,
   type NoteSession,
-} from "@/lib/db/dexie";
+} from "@/lib/db/sync";
 
 type AiAction = "summarize" | "redo" | null;
 

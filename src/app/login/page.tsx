@@ -19,6 +19,7 @@ export default function LoginPage() {
   const router = useRouter();
   const signIn = useAuth((s) => s.signInWithEmail);
   const signUp = useAuth((s) => s.signUpWithEmail);
+  const signInWithGoogle = useAuth((s) => s.signInWithGoogle);
   const continueAsGuest = useAuth((s) => s.continueAsGuest);
   const user = useAuth((s) => s.user);
   const hydrated = useAuth((s) => s.hydrated);
@@ -37,7 +38,7 @@ export default function LoginPage() {
     if (hydrated && user) router.replace("/home");
   }, [hydrated, user, router]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -56,8 +57,14 @@ export default function LoginPage() {
 
     setSubmitting(true);
     try {
-      if (mode === "login") signIn(email, password);
-      else signUp(email, password, name);
+      const result =
+        mode === "login"
+          ? await signIn(email, password)
+          : await signUp(email, password, name);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
       router.replace("/home");
     } finally {
       setSubmitting(false);
@@ -67,6 +74,17 @@ export default function LoginPage() {
   function handleGuest() {
     continueAsGuest();
     router.replace("/home");
+  }
+
+  async function handleGoogle() {
+    setError(null);
+    setSubmitting(true);
+    const { error } = await signInWithGoogle();
+    if (error) {
+      setError(error);
+      setSubmitting(false);
+    }
+    // On success the browser is redirected to Google; no need to clear submitting.
   }
 
   return (
@@ -275,8 +293,17 @@ export default function LoginPage() {
               </PillButton>
               {showSocials && (
                 <div className="grid grid-cols-2 gap-3">
-                  <PillButton variant="google">Google</PillButton>
-                  <PillButton variant="facebook">Facebook</PillButton>
+                  <PillButton
+                    variant="google"
+                    type="button"
+                    onClick={handleGoogle}
+                    disabled={submitting}
+                  >
+                    Google
+                  </PillButton>
+                  <PillButton variant="facebook" disabled>
+                    Facebook
+                  </PillButton>
                 </div>
               )}
             </div>

@@ -133,8 +133,8 @@ function UserMenu({ compact = false }: { compact?: boolean }) {
   const signOut = useAuth((s) => s.signOut);
   const initial = initialOf(user?.name);
 
-  function handleSignOut() {
-    signOut();
+  async function handleSignOut() {
+    await signOut();
     router.replace("/welcome");
   }
 

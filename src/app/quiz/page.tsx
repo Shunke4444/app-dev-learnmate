@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Check, ChevronRight, Loader2, Sparkles, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import type { QuizPayload } from "@/lib/ai/schemas";
-import { saveQuiz, saveQuizAttempt } from "@/lib/db/dexie";
+import { saveQuiz, saveQuizAttempt, type Id } from "@/lib/db/sync";
 
 type Stage = "setup" | "playing" | "done";
 
@@ -29,7 +29,7 @@ export default function QuizPage() {
   const [stage, setStage] = useState<Stage>("setup");
   const [loading, setLoading] = useState(false);
   const [quiz, setQuiz] = useState<QuizPayload | null>(null);
-  const [quizId, setQuizId] = useState<number | null>(null);
+  const [quizId, setQuizId] = useState<Id | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
   const [step, setStep] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);

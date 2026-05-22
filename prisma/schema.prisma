@@ -1,0 +1,23 @@
+// LearnMate Prisma schema (Prisma 7).
+// Connection URLs live in prisma.config.ts (not here).
+// Runtime client uses DATABASE_URL (pooled, port 6543) via PrismaClient({ datasourceUrl }).
+// Prisma CLI / migrate uses DIRECT_URL (port 5432) via prisma.config.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Mirrors auth.users.id once Supabase Auth is wired.
+model Profile {
+  id        String   @id @db.Uuid
+  email     String?  @unique
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("profiles")
+}

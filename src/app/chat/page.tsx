@@ -11,7 +11,8 @@ import {
   listMessages,
   pruneEmptyMessages,
   type Chat,
-} from "@/lib/db/dexie";
+  type Id,
+} from "@/lib/db/sync";
 import {
   attachToMessage,
   parseFile,
@@ -19,7 +20,7 @@ import {
 } from "@/lib/attachments/parse";
 
 type Msg = {
-  id?: number;
+  id?: Id;
   role: "user" | "assistant";
   content: string;
   pending?: boolean;
@@ -219,12 +220,12 @@ export default function ChatPage() {
       const acc = chunks.join("");
 
       // Persist assistant reply only if we got content.
-      let assistantMsgId: number | undefined;
+      let assistantMsgId: Id | undefined;
       if (chat?.id != null && acc.trim().length > 0) {
         try {
           assistantMsgId = await appendMessage(chat.id, "assistant", acc);
         } catch (err) {
-          console.warn("Dexie write failed:", err);
+          console.warn("Message persist failed:", err);
         }
       }
 

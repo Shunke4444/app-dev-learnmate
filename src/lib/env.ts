@@ -9,7 +9,7 @@ type EnvShape = {
   model: string | null;
   fallbacks: string[];
   appUrl: string;
-  supabase: { url: string; anonKey: string } | null;
+  supabase: { url: string; anonKey: string } | null; // anonKey holds publishable key when present
 };
 
 function parseFallbacks(raw: string | undefined): string[] {
@@ -23,7 +23,9 @@ function parseFallbacks(raw: string | undefined): string[] {
 export function readEnv(): EnvShape {
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const supaKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const supaKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   return {
     hasApiKey: Boolean(apiKey),
