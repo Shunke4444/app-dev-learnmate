@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   BookOpen,
+  Brain,
   CircleStop,
   Clock,
   Eraser,
@@ -68,11 +70,13 @@ function groupBucket(now: number, ts: number) {
 }
 
 export default function NotesPage() {
+  const router = useRouter();
   const [sessions, setSessions] = useState<NoteSession[]>([]);
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<NoteSession | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [interim, setInterim] = useState("");
+  const [uploadInfo, setUploadInfo] = useState<string | null>(null);
   const [supportNote, setSupportNote] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     if (!isSttSupported())
@@ -204,13 +208,23 @@ export default function NotesPage() {
 
   async function handleUploadAudio(file: File) {
     if (!file) return;
+    setUploadInfo(null);
     const MAX_MB = 25;
+    if (file.size === 0) {
+      setErrorNote("That file is empty — pick an audio file with content.");
+      return;
+    }
     if (file.size > MAX_MB * 1024 * 1024) {
-      setErrorNote(`File too large. Max ${MAX_MB}MB.`);
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      setErrorNote(
+        `File is ${mb} MB — too large. Trim it to under ${MAX_MB} MB and try again.`,
+      );
       return;
     }
     if (!file.type.startsWith("audio/")) {
-      setErrorNote("Pick an audio file (m4a, mp3, wav, webm, ogg).");
+      setErrorNote(
+        `That doesn't look like audio (got "${file.type || "unknown"}"). Pick m4a, mp3, wav, webm, or ogg.`,
+      );
       return;
     }
 
@@ -254,10 +268,14 @@ export default function NotesPage() {
       }
     };
 
+    const uploadStatus = attachmentPath
+      ? `Audio saved (${file.name}).`
+      : `Audio received (${file.name}).`;
+
     try {
       const text = await transcribeBlob(file);
       if (!text) {
-        setErrorNote("No speech detected in the file.");
+        setErrorNote(`${uploadStatus} No speech was detected — the transcript stayed empty.`);
         markAttachment("skipped");
         return;
       }
@@ -269,12 +287,41 @@ export default function NotesPage() {
         await updateNoteSession(session.id, { transcript: next });
       }
       markAttachment("done");
+      setUploadInfo(`${uploadStatus} Transcribed ${text.split(/\s+/).filter(Boolean).length} words.`);
     } catch (e) {
-      setErrorNote(`Transcription failed: ${(e as Error).message}`);
+      setErrorNote(
+        `${uploadStatus} Transcription failed — ${(e as Error).message}. The audio is saved; you can retry once the voice engine is ready.`,
+      );
       markAttachment("failed");
     } finally {
       setUploading(false);
     }
+  }
+
+  function startQuizFromNote() {
+    if (!active) return;
+    const transcript = (liveTranscriptRef.current || active.transcript || "").trim();
+    if (!transcript) {
+      setErrorNote("Capture or upload some notes first — quizzes need source material.");
+      return;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.setItem(
+          "learnmate-quiz-source",
+          JSON.stringify({
+            topic: active.title,
+            source: transcript.slice(0, 18_000),
+            from: "notes",
+            noteId: String(active.id ?? ""),
+          }),
+        );
+      } catch {
+        // sessionStorage may be disabled — fall back to URL-only.
+      }
+    }
+    const topic = encodeURIComponent(active.title);
+    router.push(`/quiz?from=notes&topic=${topic}`);
   }
 
   async function saveSession() {
@@ -426,9 +473,11 @@ export default function NotesPage() {
             onSave={saveSession}
             onSummarize={() => runAi("summarize")}
             onRedo={() => runAi("redo")}
+            onMakeQuiz={startQuizFromNote}
             aiAction={aiAction}
             error={error}
             errorNote={errorNote}
+            uploadInfo={uploadInfo}
             supportNote={supportNote}
             engine={engine}
             whisperStatus={whisperStatus}
@@ -438,6 +487,7 @@ export default function NotesPage() {
               stopCapture();
               setActive(null);
               setErrorNote(null);
+              setUploadInfo(null);
               refreshSessions();
             }}
           />
@@ -634,9 +684,11 @@ function ActiveSessionPanel(props: {
   onSave: () => void;
   onSummarize: () => void;
   onRedo: () => void;
+  onMakeQuiz: () => void;
   aiAction: AiAction;
   error: ErrorState;
   errorNote: string | null;
+  uploadInfo: string | null;
   supportNote: string | null;
   engine: "web-speech" | "whisper" | null;
   whisperStatus: WhisperProgress | null;
@@ -772,6 +824,15 @@ function ActiveSessionPanel(props: {
               Rewrite
             </button>
           </div>
+          <button
+            type="button"
+            onClick={props.onMakeQuiz}
+            disabled={props.aiAction !== null}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-pink px-3 py-2.5 text-sm font-semibold text-black ring-1 ring-white/10 hover:brightness-95 disabled:opacity-50"
+          >
+            <Brain size={14} />
+            Make a quiz from this note
+          </button>
 
           {props.error.kind !== "none" && (
             <div className="rounded-2xl bg-red/15 px-3 py-2.5 text-xs text-foreground ring-1 ring-red/30">
@@ -797,6 +858,11 @@ function ActiveSessionPanel(props: {
           {props.errorNote && (
             <div className="rounded-2xl bg-red/15 px-3 py-2.5 text-xs text-foreground ring-1 ring-red/30">
               {props.errorNote}
+            </div>
+          )}
+          {props.uploadInfo && !props.errorNote && (
+            <div className="rounded-2xl bg-teal/15 px-3 py-2.5 text-xs text-foreground ring-1 ring-teal/30">
+              {props.uploadInfo}
             </div>
           )}
           {props.supportNote && !props.errorNote && (

@@ -18,7 +18,12 @@ import {
   isSupported as isSttSupported,
   isWebSpeechSupported,
 } from "@/lib/voice/recognition";
-import { loadPreferredEngine, rememberEngine } from "@/lib/voice/engine";
+import {
+  forceEngine,
+  getForcedEngine,
+  loadPreferredEngine,
+  rememberEngine,
+} from "@/lib/voice/engine";
 import { FALLBACKS, listPromptSuggestions } from "@/lib/db/suggestions";
 import { onWhisperProgress, type WhisperProgress } from "@/lib/voice/whisper";
 import { cancelSpeech, isTtsSupported, speak } from "@/lib/voice/tts";
@@ -56,6 +61,9 @@ export default function TalkPage() {
   });
   const [errorNote, setErrorNote] = useState<string | null>(null);
   const [engine, setEngine] = useState<"web-speech" | "whisper" | null>(null);
+  const [forcedEngine, setForcedEngine] = useState<"web-speech" | "whisper" | null>(() =>
+    typeof window !== "undefined" ? getForcedEngine() : null,
+  );
   const [whisperStatus, setWhisperStatus] = useState<WhisperProgress | null>(null);
 
   const recRef = useRef<ReturnType<typeof createRecognition> | null>(null);
@@ -285,11 +293,28 @@ export default function TalkPage() {
     setSpeaking(false);
   }
 
+  // Cycle auto → cloud → local → auto. Forces recognition factory to honour
+  // the user's pick on the next start (recRef is torn down to take effect).
+  function cycleEngine() {
+    const next: "web-speech" | "whisper" | null =
+      forcedEngine === null
+        ? "web-speech"
+        : forcedEngine === "web-speech"
+          ? "whisper"
+          : null;
+    forceEngine(next);
+    setForcedEngine(next);
+    setEngine(null);
+    setErrorNote(null);
+    recRef.current?.stop();
+    recRef.current = null;
+  }
+
   const statusLabel = active
     ? "Listening"
     : speaking
       ? "Speaking"
-      : "Tap to start";
+      : "Ready";
 
   const displayed = useMemo(() => {
     const list = lines.slice();
@@ -377,17 +402,32 @@ export default function TalkPage() {
               End session
             </button>
 
-            {engine && (
-              <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-bg/35 px-2.5 py-1 text-[10px] uppercase tracking-wider text-muted ring-1 ring-white/5">
-                <span
-                  className={
-                    "h-1.5 w-1.5 rounded-full " +
-                    (engine === "whisper" ? "bg-purple" : "bg-teal")
-                  }
-                />
-                {engine === "whisper" ? "Local Whisper" : "Cloud (Web Speech)"}
-              </p>
-            )}
+            <button
+              type="button"
+              onClick={cycleEngine}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-bg/35 px-2.5 py-1 text-[10px] uppercase tracking-wider text-muted ring-1 ring-white/5 transition hover:bg-bg/55 hover:text-foreground"
+              title="Tap to switch voice engine"
+            >
+              <span
+                className={
+                  "h-1.5 w-1.5 rounded-full " +
+                  (forcedEngine === "whisper" || engine === "whisper"
+                    ? "bg-purple"
+                    : forcedEngine === "web-speech" || engine === "web-speech"
+                      ? "bg-teal"
+                      : "bg-muted")
+                }
+              />
+              {forcedEngine === "whisper"
+                ? "Local Whisper · locked"
+                : forcedEngine === "web-speech"
+                  ? "Cloud (Web Speech) · locked"
+                  : engine === "whisper"
+                    ? "Local Whisper · auto"
+                    : engine === "web-speech"
+                      ? "Cloud (Web Speech) · auto"
+                      : "Auto · tap to switch"}
+            </button>
             {whisperStatus?.kind === "downloading" && (
               <p className="mt-3 max-w-[52ch] rounded-2xl bg-bg/35 px-3 py-2 text-[11px] text-muted ring-1 ring-white/5">
                 Loading voice model — {whisperStatus.percent}%

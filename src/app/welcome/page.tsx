@@ -83,7 +83,7 @@ export default function WelcomePage() {
               <Link href="/login" className="w-full">
                 <PillButton variant="primary">Log in</PillButton>
               </Link>
-              <Link href="/login?mode=signup" className="w-full">
+              <Link href="/signup" className="w-full">
                 <PillButton variant="outline">Sign up</PillButton>
               </Link>
               <PillButton variant="surface" type="button" onClick={handleGuest}>

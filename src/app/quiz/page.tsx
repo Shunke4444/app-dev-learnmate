@@ -27,6 +27,9 @@ export default function QuizPage() {
   const [step, setStep] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [error, setError] = useState<ErrorState>({ kind: "none" });
+  // When non-null, generate() will splice this transcript into the prompt as
+  // grounding source — set by the "Make quiz from this note" button on Notes.
+  const [noteSource, setNoteSource] = useState<string | null>(null);
   const [topicSuggestions, setTopicSuggestions] =
     useState<string[]>(FALLBACKS.quiz);
 
@@ -40,6 +43,43 @@ export default function QuizPage() {
       cancelled = true;
     };
   }, []);
+
+  // Pick up a "make quiz from this note" handoff from the Notes page.
+  const [pendingAutoTopic, setPendingAutoTopic] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("from") !== "notes") return;
+    try {
+      const raw = window.sessionStorage.getItem("learnmate-quiz-source");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        topic?: string;
+        source?: string;
+      };
+      // One-time bootstrap from the cross-page handoff; safe to write state in
+      // this effect because it runs exactly once and clears the storage key.
+      /* eslint-disable react-hooks/set-state-in-effect */
+      if (parsed.topic) setTopic(parsed.topic);
+      if (parsed.source) setNoteSource(parsed.source);
+      if (parsed.topic && parsed.source) setPendingAutoTopic(parsed.topic);
+      /* eslint-enable react-hooks/set-state-in-effect */
+      window.sessionStorage.removeItem("learnmate-quiz-source");
+    } catch {
+      // ignore — fall back to manual entry
+    }
+  }, []);
+
+  // Auto-kick generation once noteSource + topic land in state from the
+  // sessionStorage handoff. Effect runs once because we clear the flag below.
+  useEffect(() => {
+    if (!pendingAutoTopic || !noteSource) return;
+    const t = pendingAutoTopic;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPendingAutoTopic(null);
+    void generate(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoTopic, noteSource]);
 
   const current = quiz?.questions[step];
   const total = quiz?.questions.length ?? 0;
@@ -64,7 +104,11 @@ export default function QuizPage() {
       const res = await fetch("/api/ai/quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: activeTopic.trim(), count }),
+        body: JSON.stringify({
+          topic: activeTopic.trim(),
+          count,
+          ...(noteSource ? { source: noteSource } : {}),
+        }),
       });
 
       if (!res.ok) {
@@ -155,8 +199,11 @@ export default function QuizPage() {
             setCount={setCount}
             loading={loading}
             error={error}
+            noteSourceLength={noteSource?.length ?? 0}
+            onClearNoteSource={() => setNoteSource(null)}
             onGenerate={() => generate(topic)}
             onSuggestion={(s) => {
+              setNoteSource(null);
               setTopic(s);
               generate(s);
             }}
@@ -201,6 +248,8 @@ function SetupPanel(props: {
   setCount: (n: number) => void;
   loading: boolean;
   error: ErrorState;
+  noteSourceLength: number;
+  onClearNoteSource: () => void;
   onGenerate: () => void;
   onSuggestion: (s: string) => void;
   suggestions: string[];
@@ -223,6 +272,22 @@ function SetupPanel(props: {
         <p className="mt-2 max-w-[60ch] text-sm text-muted">
           Pick a topic and I&apos;ll generate fresh multiple-choice questions with rationale.
         </p>
+
+        {props.noteSourceLength > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl bg-teal/10 px-3 py-2 text-xs text-foreground ring-1 ring-teal/30">
+            <Sparkles size={13} className="text-teal" />
+            <span>
+              Grounded in your note ({props.noteSourceLength.toLocaleString()} chars).
+            </span>
+            <button
+              type="button"
+              onClick={props.onClearNoteSource}
+              className="ml-auto rounded-full bg-bg/35 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted ring-1 ring-white/5 hover:text-foreground"
+            >
+              Use without notes
+            </button>
+          </div>
+        )}
 
         <form
           className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center"

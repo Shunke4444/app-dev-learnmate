@@ -36,40 +36,78 @@ export function isWhisperLoaded(): boolean {
   return transcriberPromise !== null;
 }
 
+type PipelineOpts = {
+  device?: "wasm" | "webgpu";
+  dtype?: string | Record<string, string>;
+  progress_callback?: (data: {
+    status: string;
+    file?: string;
+    loaded?: number;
+    total?: number;
+    progress?: number;
+  }) => void;
+};
+
+function progressHandler(data: {
+  status: string;
+  file?: string;
+  loaded?: number;
+  total?: number;
+}) {
+  if (data.status === "progress" && data.file && data.total) {
+    const loaded = data.loaded ?? 0;
+    const total = data.total;
+    emit({
+      kind: "downloading",
+      file: data.file,
+      loaded,
+      total,
+      percent: Math.min(100, Math.round((loaded / total) * 100)),
+    });
+  } else if (data.status === "done" || data.status === "ready") {
+    emit({ kind: "ready" });
+  }
+}
+
 async function loadTranscriber(): Promise<Transcriber> {
   const mod = await import("@huggingface/transformers");
-  const pipeline = mod.pipeline;
+  const pipeline = mod.pipeline as (
+    task: string,
+    model: string,
+    opts?: PipelineOpts,
+  ) => Promise<unknown>;
 
-  const pipe = await pipeline(
-    "automatic-speech-recognition",
-    MODEL_ID,
-    {
-      progress_callback: (data: {
-        status: string;
-        file?: string;
-        loaded?: number;
-        total?: number;
-        progress?: number;
-      }) => {
-        if (data.status === "progress" && data.file && data.total) {
-          const loaded = data.loaded ?? 0;
-          const total = data.total;
-          emit({
-            kind: "downloading",
-            file: data.file,
-            loaded,
-            total,
-            percent: Math.min(100, Math.round((loaded / total) * 100)),
-          });
-        } else if (data.status === "done" || data.status === "ready") {
-          emit({ kind: "ready" });
-        }
-      },
+  // The default quant variant of Xenova/whisper-tiny.en uses block-quant weights
+  // that require a `*_scale` tensor some browsers (notably PC Brave's ORT-Web
+  // build) fail to find at inference time, surfacing as:
+  //   "TransposeDQWeightsForMatMulNBits Missing required scale"
+  // We sidestep it by pinning the encoder to fp32 and the decoder to q4 — both
+  // shipped variants that run on the wasm provider without that kernel path.
+  // wasm is also the most reliable provider in Chromium-Google forks.
+  const baseOpts: PipelineOpts = {
+    device: "wasm",
+    dtype: {
+      encoder_model: "fp32",
+      decoder_model_merged: "q4",
     },
-  );
+    progress_callback: progressHandler,
+  };
 
-  emit({ kind: "ready" });
-  return pipe as unknown as Transcriber;
+  try {
+    const pipe = await pipeline("automatic-speech-recognition", MODEL_ID, baseOpts);
+    emit({ kind: "ready" });
+    return pipe as unknown as Transcriber;
+  } catch (err) {
+    // Fallback to fully unquantized fp32 if the q4 decoder variant is missing.
+    console.warn("Whisper fp32+q4 load failed, retrying fp32:", err);
+    const pipe = await pipeline("automatic-speech-recognition", MODEL_ID, {
+      device: "wasm",
+      dtype: "fp32",
+      progress_callback: progressHandler,
+    });
+    emit({ kind: "ready" });
+    return pipe as unknown as Transcriber;
+  }
 }
 
 export function getTranscriber(): Promise<Transcriber> {

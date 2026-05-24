@@ -311,6 +311,7 @@ export function Hero3D() {
     };
 
     frame();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReady(true);
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", schedule);

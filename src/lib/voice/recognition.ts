@@ -122,15 +122,34 @@ function createWebSpeechController(opts: RecognitionOptions): RecognitionControl
   let running = false;
   let stoppedByUser = false;
 
+  // Track final segments we've already surfaced so we don't replay them when
+  // mobile Chromium fires the same result list twice (it commonly does).
+  let firedFinalCount = 0;
   rec.onresult = (event) => {
     let interim = "";
-    for (let i = event.resultIndex; i < event.results.length; i++) {
+    let finalsThisBatch = 0;
+    let latestFinal = "";
+    for (let i = 0; i < event.results.length; i++) {
       const r = event.results[i];
       const text = r[0]?.transcript ?? "";
-      if (r.isFinal) opts.onFinal?.(text.trim());
-      else interim += text;
+      if (r.isFinal) {
+        finalsThisBatch++;
+        if (finalsThisBatch > firedFinalCount) {
+          latestFinal = text.trim();
+        }
+      } else {
+        interim += text;
+      }
     }
-    if (interim) opts.onPartial?.(interim.trim());
+    // Mobile Web Speech sometimes only delivers `isFinal=true` results without
+    // any interim, so mirror the running text to onPartial regardless. That
+    // keeps the live transcript bar populated everywhere.
+    const live = (interim || latestFinal).trim();
+    if (live) opts.onPartial?.(live);
+    if (latestFinal) {
+      firedFinalCount = finalsThisBatch;
+      opts.onFinal?.(latestFinal);
+    }
   };
 
   rec.onerror = (e) => {
