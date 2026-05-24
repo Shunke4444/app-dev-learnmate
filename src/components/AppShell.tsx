@@ -19,6 +19,11 @@ import {
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { MascotMini } from "@/components/Mascot";
 import { initialOf, useAuth } from "@/lib/auth/store";
+import {
+  loadPreferences,
+  readLocalPrefs,
+  updatePreferences,
+} from "@/lib/db/preferences";
 
 const nav = [
   { href: "/home", label: "Home", icon: Home },
@@ -239,30 +244,29 @@ function useAuthGuard() {
   return { ready: hydrated, user };
 }
 
-const COLLAPSE_KEY = "lm:sidebar-collapsed";
-
-function readCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(COLLAPSE_KEY) === "1";
-  } catch {
-    // ignore — strict privacy mode
-    return false;
-  }
-}
-
 function useSidebarCollapsed(): [boolean, (next: boolean) => void] {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
-    return readCollapsed();
+    return readLocalPrefs().sidebarCollapsed;
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadPreferences().then((prefs) => {
+      if (cancelled) return;
+      if (prefs.sidebarCollapsed !== collapsed) {
+        setCollapsed(prefs.sidebarCollapsed);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function set(next: boolean) {
     setCollapsed(next);
-    try {
-      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
-    } catch {
-      // ignore
-    }
+    void updatePreferences({ sidebarCollapsed: next });
   }
 
   return [collapsed, set];
@@ -367,13 +371,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 px-3 pb-28 pt-4 sm:px-4 sm:pt-5 lg:px-8 lg:pb-10 lg:pt-8">
+        <main className="min-w-0 flex-1 px-4 pb-[calc(8.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pt-5 lg:px-8 lg:pb-10 lg:pt-8">
           {children}
         </main>
 
         <nav
           aria-label="Primary"
-          className="fixed inset-x-3 bottom-3 z-30 lg:hidden"
+          className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-30 lg:hidden"
         >
           <div className="lm-glass-strong flex items-stretch gap-0.5 rounded-3xl px-1.5 py-1.5 shadow-[0_18px_50px_-12px_rgba(0,0,0,0.7)]">
             {nav.map((item) => (

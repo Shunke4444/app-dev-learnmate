@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>LearnMate — landing concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0b0f0e;--surface:#15191a;--surface2:#1e2422;--fg:#fff;--muted:#8a938f;--teal:#34e0c4;--lime:#c8f65d;--purple:#c9a7f5}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--fg);overflow-x:hidden;
+    font-family:Poppins,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .note{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:95;font-size:11px;color:var(--muted);
+    background:rgba(21,25,26,.7);border:1px solid rgba(255,255,255,.06);padding:5px 12px;border-radius:999px;backdrop-filter:blur(8px)}
+  .eyebrow{font-size:13px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+  .fog{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .blob{position:absolute;border-radius:50%;filter:blur(100px);opacity:.4;will-change:transform}
+  .b1{width:60vw;height:60vw;left:-12vw;top:-6vw;background:radial-gradient(circle,rgba(52,224,196,.5),transparent 60%)}
+  .b2{width:55vw;height:55vw;right:-12vw;top:30vh;background:radial-gradient(circle,rgba(201,167,245,.4),transparent 62%)}
+  .logo{position:fixed;top:16px;left:18px;z-index:96;display:flex;align-items:center;gap:9px}
+  .logo img{width:42px;height:34px;object-fit:contain}.logo b{font-size:16px;font-weight:700}
+
+  .zoom{position:relative;height:500vh;z-index:1}
+  .zsticky{position:sticky;top:0;height:100vh;overflow:hidden;perspective:1600px}
+  #stage{position:absolute;inset:0;z-index:5;transform-origin:center center;will-change:transform,opacity;pointer-events:none;background:center/contain no-repeat url('AI.png')}
+  #stage canvas{width:100%;height:100%;display:block}
+  .tagline{position:absolute;left:0;right:0;bottom:18vh;z-index:6;text-align:center;will-change:opacity}
+  .tagline h1{font-size:clamp(30px,4.4vw,54px);font-weight:700;letter-spacing:-.02em}
+  .tagline h1 .a{color:var(--teal)}
+  .tagline .scr{margin-top:14px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);animation:bob 1.8s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0);opacity:.6}50%{transform:translateY(5px);opacity:1}}
+
+  .center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:3}
+  .phone{position:relative;width:332px;height:700px;border-radius:58px;transform-style:preserve-3d;will-change:transform;
+    background:linear-gradient(135deg,#525c61 0%,#20262a 20%,#0c1010 50%,#20262a 80%,#454f54 100%);padding:14px;
+    box-shadow:0 60px 150px rgba(0,0,0,.7),inset 0 0 0 2px rgba(255,255,255,.07),inset 0 3px 8px rgba(255,255,255,.14),inset 0 -3px 8px rgba(0,0,0,.55)}
+  .side{position:absolute;background:linear-gradient(90deg,#1c2122,#4a5358);border-radius:3px;box-shadow:inset 0 0 3px rgba(0,0,0,.6)}
+  .v1{left:-3px;top:150px;width:4px;height:30px}.v2{left:-3px;top:192px;width:4px;height:52px}.pw{right:-3px;top:176px;width:4px;height:64px}
+  .screen{position:relative;width:100%;height:100%;border-radius:44px;overflow:hidden;background:transparent;display:flex;flex-direction:column;box-shadow:inset 0 0 0 1px rgba(0,0,0,.85)}
+  .reflection{position:absolute;inset:0;border-radius:44px;pointer-events:none;z-index:20;background:linear-gradient(118deg,rgba(255,255,255,.12) 0%,transparent 26%,transparent 72%,rgba(255,255,255,.05) 100%);mix-blend-mode:screen}
+  .island{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:98px;height:27px;background:#000;border-radius:16px;z-index:15;opacity:0}
+  .chat{position:absolute;inset:0;z-index:11;display:flex;flex-direction:column;opacity:0;background:#0b0f0e}
+  .status{display:flex;justify-content:space-between;align-items:center;padding:15px 22px 2px;font-size:11px;font-weight:600}
+  .status .ic span{display:inline-block;width:16px;height:9px;border:1px solid var(--fg);border-radius:2px;opacity:.85}
+  .chead{display:flex;align-items:center;gap:9px;padding:6px 18px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+  .av{width:28px;height:18px;border-radius:11px;background:#0a0d0c;position:relative;flex:0 0 auto}
+  .av::before,.av::after{content:"";position:absolute;top:4px;width:4px;height:9px;border-radius:3px;background:var(--teal);box-shadow:0 0 7px var(--teal)}
+  .av::before{left:7px}.av::after{right:7px}
+  .chead b{font-size:14px}.chead .on{font-size:10px;color:var(--teal);margin-left:auto}
+  .thread{flex:1;overflow:hidden;padding:12px 12px 0;display:flex;flex-direction:column;gap:9px}
+  .row{display:flex;opacity:0;transform:translateY(12px) scale(.96);transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.2,1)}
+  .row.in{opacity:1;transform:none}.row.u{justify-content:flex-end}
+  .bub{max-width:82%;padding:9px 12px;border-radius:15px;font-size:12px;line-height:1.35}
+  .u .bub{background:var(--teal);color:#06120f;border-bottom-right-radius:5px;font-weight:500}
+  .b .bub{background:var(--surface2);color:var(--fg);border-bottom-left-radius:5px}
+  .composer{display:flex;align-items:center;gap:8px;padding:9px 11px 14px}
+  .composer .box{flex:1;height:34px;border-radius:999px;background:var(--surface);border:1px solid rgba(255,255,255,.06)}
+  .mic{width:34px;height:34px;border-radius:50%;background:var(--lime);position:relative;flex:0 0 auto}
+  .mic::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--lime);animation:pulse 1.6s ease-out infinite}
+  @keyframes pulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.8);opacity:0}}
+
+  .value{position:relative;z-index:1;padding:150px 0 170px;text-align:center}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 26px}
+  .value h2{font-size:clamp(36px,6vw,76px);font-weight:700;line-height:1.04;letter-spacing:-.02em;max-width:16ch;margin:0 auto}
+  .value h2 .free{color:var(--lime)}
+  .value .sub{margin:22px auto 0;max-width:50ch;color:var(--muted);font-size:clamp(15px,1.7vw,20px)}
+  .chips{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:34px}
+  .chip{font-size:14px;font-weight:600;padding:11px 19px;border-radius:999px;background:var(--surface);border:1px solid rgba(255,255,255,.07)}
+  .chip.t{color:var(--teal);border-color:rgba(52,224,196,.35)}.chip.l{color:var(--lime);border-color:rgba(200,246,93,.35)}
+  .rev{opacity:0;transform:translateY(34px) scale(.98);transition:opacity .9s ease,transform .9s cubic-bezier(.2,.7,.2,1)}
+  .rev.in{opacity:1;transform:none}
+  .foot{position:relative;z-index:1;padding:24px 0 80px;text-align:center;color:var(--muted);font-size:12.5px}
+  @media (prefers-reduced-motion:reduce){.phone{transform:scale(1)!important}.chat{opacity:1}.tagline{display:none}}
+</style>
+</head>
+<body>
+  <div class="note">Concept · 3D buddy follows your mouse → scroll reveals the phone → turns to chat</div>
+  <div class="fog"><div class="blob b1"></div><div class="blob b2"></div></div>
+  <div class="logo"><img src="AI.png" alt=""><b>LearnMate</b></div>
+
+  <section class="zoom" id="zoom">
+    <div class="zsticky">
+      <div id="stage" aria-label="3D mascot"></div>
+      <div class="tagline" id="tag"><h1>Your <span class="a">learning buddy</span>.</h1><div class="scr">move your mouse · scroll ↓</div></div>
+      <div class="center">
+        <div class="phone" id="phone">
+          <span class="side v1"></span><span class="side v2"></span><span class="side pw"></span>
+          <div class="screen">
+            <div class="island" id="island"></div>
+            <div class="reflection"></div>
+            <div class="chat" id="chat">
+              <div class="status"><span>9:41</span><span class="ic"><span></span></span></div>
+              <div class="chead"><span class="av"></span><b>LearnMate</b><span class="on">● online</span></div>
+              <div class="thread" id="thread"></div>
+              <div class="composer"><div class="box"></div><div class="mic"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="value">
+    <div class="wrap rev" id="val">
+      <p class="eyebrow">Free, forever</p>
+      <h2>Everything you need to study.<br><span class="free">Nothing you'd pay for.</span></h2>
+      <p class="sub">Powered by free AI models — no subscription, no credit card. Works offline and installs like a native app.</p>
+      <div class="chips"><span class="chip l">$0 to use</span><span class="chip">No credit card</span>
+        <span class="chip t">Free AI models</span><span class="chip">Works offline</span><span class="chip t">Installable PWA</span></div>
+    </div>
+  </section>
+  <div class="foot">Concept preview only. Approve and I port this hero into LandingPage.tsx with your tokens.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+var PX=0,PY=0;
+addEventListener('pointermove',function(e){PX=e.clientX/innerWidth-0.5;PY=e.clientY/innerHeight-0.5;});
+
+/* 3D buddy — head follows + EYES track the mouse. Guarded so WebGL failure never halts the page. */
+(function(){
+  var host=document.getElementById('stage');
+  if(typeof THREE==='undefined') return;
+  try{
+    var rn=new THREE.WebGLRenderer({alpha:true,antialias:true}); rn.setPixelRatio(Math.min(2,devicePixelRatio));
+    var W=function(){return innerWidth;},H=function(){return innerHeight;};
+    rn.setSize(W(),H()); host.appendChild(rn.domElement); host.style.background='none';
+    var sc=new THREE.Scene(), cam=new THREE.PerspectiveCamera(40,W()/H(),0.1,100); cam.position.z=6;
+    sc.add(new THREE.AmbientLight(0xffffff,0.55));
+    sc.add(Object.assign(new THREE.DirectionalLight(0xffffff,0.9),{position:new THREE.Vector3(3,4,6)}));
+    sc.add(Object.assign(new THREE.PointLight(0x34e0c4,1.7,40),{position:new THREE.Vector3(0,0,3.2)}));
+    sc.add(Object.assign(new THREE.PointLight(0xc8f65d,0.7,40),{position:new THREE.Vector3(-4,-2,4)}));
+    var m=new THREE.Group(); sc.add(m);
+    var head=new THREE.Mesh(new THREE.SphereGeometry(1.7,64,64),new THREE.MeshStandardMaterial({color:0x0c100f,roughness:0.32,metalness:0.25}));
+    head.scale.set(1.3,0.95,0.92); m.add(head);
+    var em=new THREE.MeshStandardMaterial({color:0x34e0c4,emissive:0x34e0c4,emissiveIntensity:1.6,roughness:0.25});
+    function mkEye(x){var e=new THREE.Mesh(new THREE.SphereGeometry(0.34,32,32),em);e.scale.set(0.66,1.55,0.42);e.position.set(x,0.06,1.5);return e;}
+    var eyeL=mkEye(-0.58), eyeR=mkEye(0.58); m.add(eyeL); m.add(eyeR);
+    addEventListener('resize',function(){cam.aspect=W()/H();cam.updateProjectionMatrix();rn.setSize(W(),H());});
+    (function loop(t){
+      t*=0.001;
+      m.rotation.y = PX*0.45 + Math.sin(t*0.6)*0.06;     // head follows the mouse a bit
+      m.rotation.x = PY*0.28;
+      m.position.y = Math.sin(t*0.9)*0.10;
+      var ox=PX*0.55, oy=-PY*0.36;                       // EYES track the cursor
+      eyeL.position.x=-0.58+ox; eyeL.position.y=0.06+oy;
+      eyeR.position.x= 0.58+ox; eyeR.position.y=0.06+oy;
+      rn.render(sc,cam); requestAnimationFrame(loop);
+    })(0);
+  }catch(e){ /* WebGL unavailable — AI.png fallback stays, page still works */ }
+})();
+
+/* chat data */
+var convo=[
+  {w:'u',t:'Explain Newton’s third law'},
+  {w:'b',t:'Every action has an equal and opposite reaction — push a wall, it pushes back just as hard.'},
+  {w:'u',t:'Quiz me on it'},
+  {w:'b',t:'When you jump off a small boat, which way does the boat move?'},
+  {w:'u',t:'Backwards — reaction force'},
+  {w:'b',t:'Correct! Your push sends the boat back; its push launches you forward. 🎉'},
+  {w:'u',t:'Save this as a note'},
+  {w:'b',t:'Saved to “Physics — Newton’s Laws.” Want a quiz next?'}
+];
+var thread=document.getElementById('thread');
+var rows=convo.map(function(mm){var r=document.createElement('div');r.className='row '+mm.w;r.innerHTML='<div class="bub">'+mm.t+'</div>';thread.appendChild(r);return r;});
+
+var zoom=document.getElementById('zoom'),phone=document.getElementById('phone'),stage=document.getElementById('stage'),
+    tag=document.getElementById('tag'),chat=document.getElementById('chat'),island=document.getElementById('island');
+var SCREEN_W=304;
+function S0(){return Math.min(7,Math.max(2.6,innerWidth/SCREEN_W));}
+function easeOut(x){return 1-Math.pow(1-x,3);}
+function frame(){
+  var r=zoom.getBoundingClientRect(), total=zoom.offsetHeight-innerHeight;
+  var p=Math.min(1,Math.max(0,(-r.top)/total));
+  var s0=S0();
+  var zp=Math.min(1,p/0.45), ps=s0+(1-s0)*easeOut(zp);
+  var tp=Math.min(1,Math.max(0,(p-0.46)/0.54)), ry=-24*easeOut(tp), rx=7*tp;
+  if(!reduce){ phone.style.transform='scale('+ps+') rotateY('+ry+'deg) rotateX('+rx+'deg)'; stage.style.transform='scale('+(ps/s0)+')'; }
+  stage.style.opacity=String(Math.max(0,1-Math.max(0,(p-0.42))/0.12));
+  tag.style.opacity=String(Math.max(0,1-p/0.20));
+  chat.style.opacity=String(Math.min(1,Math.max(0,(p-0.44)/0.12)));
+  island.style.opacity=String(Math.min(1,Math.max(0,(p-0.48)/0.10)));
+  var mp=Math.min(1,Math.max(0,(p-0.56)/0.44)), n=Math.round(mp*rows.length);
+  rows.forEach(function(row,i){row.classList.toggle('in',i<n);}); thread.scrollTop=thread.scrollHeight;
+  var y=scrollY,bl=document.querySelectorAll('.blob');
+  if(bl[0])bl[0].style.transform='translateY('+(y*0.06)+'px)'; if(bl[1])bl[1].style.transform='translateY('+(y*-0.04)+'px)';
+}
+addEventListener('scroll',frame,{passive:true}); addEventListener('resize',frame); frame();
+new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)e.target.classList.add('in');});},{threshold:0.3}).observe(document.getElementById('val'));
+</script>
+</bo

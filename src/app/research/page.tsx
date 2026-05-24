@@ -1,16 +1,33 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Check,
   FileText,
   Loader2,
+  Paperclip,
   Sparkles,
   Upload,
   X,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import type { ResearchPayload, ResearchSuggestion } from "@/lib/ai/schemas";
+import { saveResearchDoc } from "@/lib/db/sync";
+import {
+  insertResearchSuggestions,
+  setSuggestionStatus,
+} from "@/lib/db/research-suggestions";
+import { parseFile, type ParsedAttachment } from "@/lib/attachments/parse";
+import { saveResearchUpload, UploadError } from "@/lib/storage/uploads";
+
+import { uid } from "@/lib/util/id";
+
+type PendingAttachment = {
+  id: string;
+  file: File;
+  parsed: ParsedAttachment;
+  uploaded: boolean;
+};
 
 type Decision = "open" | "accepted" | "rejected";
 
@@ -29,10 +46,6 @@ const typeTone: Record<ResearchSuggestion["type"], string> = {
   style: "bg-lime/15 text-lime ring-lime/25",
 };
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
 export default function ResearchPage() {
   const [text, setText] = useState("");
   const [score, setScore] = useState<number | null>(null);
@@ -41,6 +54,88 @@ export default function ResearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState>({ kind: "none" });
   const [tab, setTab] = useState<"editor" | "suggestions">("editor");
+  const [docId, setDocId] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [attaching, setAttaching] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setAttaching(true);
+    setError({ kind: "none" });
+    try {
+      for (const f of Array.from(files)) {
+        try {
+          const parsed = await parseFile(f);
+          const entry: PendingAttachment = {
+            id: uid(),
+            file: f,
+            parsed,
+            uploaded: false,
+          };
+          setAttachments((cur) => [...cur, entry]);
+
+          // Append parsed text into the draft so AI Assist can see it.
+          if (parsed.text && parsed.kind !== "unsupported") {
+            setText((cur) => {
+              const block =
+                `\n\n--- ${parsed.name} (${parsed.kind}${parsed.truncated ? ", truncated" : ""}) ---\n` +
+                parsed.text +
+                `\n--- end ${parsed.name} ---\n`;
+              return cur ? cur + block : block.trimStart();
+            });
+          }
+
+          // If we already have a docId (analyze ran), persist this blob now.
+          if (docId) {
+            try {
+              await saveResearchUpload(docId, f, parsed.text);
+              setAttachments((cur) =>
+                cur.map((a) => (a.id === entry.id ? { ...a, uploaded: true } : a)),
+              );
+            } catch (e) {
+              if (e instanceof UploadError && e.code !== "no_auth") {
+                setError({
+                  kind: "generic",
+                  message: `Couldn't upload "${f.name}": ${e.message}`,
+                });
+              }
+            }
+          }
+        } catch (e) {
+          setError({
+            kind: "generic",
+            message: `Couldn't read "${f.name}": ${(e as Error).message}`,
+          });
+        }
+      }
+    } finally {
+      setAttaching(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((cur) => cur.filter((a) => a.id !== id));
+  }
+
+  // After analyze creates a docId, flush any attachments that didn't have one yet.
+  async function flushPendingUploads(id: string) {
+    const pending = attachments.filter((a) => !a.uploaded);
+    if (pending.length === 0) return;
+    for (const a of pending) {
+      try {
+        await saveResearchUpload(id, a.file, a.parsed.text);
+        setAttachments((cur) =>
+          cur.map((x) => (x.id === a.id ? { ...x, uploaded: true } : x)),
+        );
+      } catch (e) {
+        if (e instanceof UploadError && e.code !== "no_auth") {
+          console.warn("research upload failed:", e);
+        }
+      }
+    }
+  }
 
   const wordCount = useMemo(
     () => (text.trim() ? text.trim().split(/\s+/).length : 0),
@@ -89,9 +184,44 @@ export default function ResearchPage() {
       const data = (await res.json()) as ResearchPayload;
       setScore(data.score);
       setSummary(data.summary || null);
-      setItems(
-        data.suggestions.map((s) => ({ ...s, id: uid(), status: "open" as const })),
-      );
+
+      // Persist the doc (or update if we already created one this session),
+      // then store the new suggestions linked to it.
+      let id = docId;
+      try {
+        const title = draft.split(/\s+/).slice(0, 6).join(" ").slice(0, 80) || "Research draft";
+        const doc = await saveResearchDoc({
+          title,
+          text: draft,
+          score: data.score,
+          summary: data.summary || undefined,
+        });
+        id = String(doc.id);
+        setDocId(id);
+        await flushPendingUploads(id);
+      } catch {
+        // guest mode or write failure — fall through to local-only ids
+      }
+
+      let persisted: SuggestionRow[];
+      if (id) {
+        const rows = await insertResearchSuggestions(id, data.suggestions);
+        persisted = rows.map((r) => ({
+          type: r.type,
+          original: r.original,
+          replacement: r.replacement,
+          explanation: r.explanation,
+          id: r.id,
+          status: r.status,
+        }));
+      } else {
+        persisted = data.suggestions.map((s) => ({
+          ...s,
+          id: uid(),
+          status: "open" as const,
+        }));
+      }
+      setItems(persisted);
     } catch (e) {
       setError({ kind: "generic", message: (e as Error).message });
     } finally {
@@ -109,12 +239,14 @@ export default function ResearchPage() {
     setItems((arr) =>
       arr.map((s) => (s.id === row.id ? { ...s, status: "accepted" } : s)),
     );
+    void setSuggestionStatus(row.id, "accepted");
   }
 
   function rejectEdit(row: SuggestionRow) {
     setItems((arr) =>
       arr.map((s) => (s.id === row.id ? { ...s, status: "rejected" } : s)),
     );
+    void setSuggestionStatus(row.id, "rejected");
   }
 
   function reset() {
@@ -163,6 +295,35 @@ export default function ResearchPage() {
         </div>
       )}
 
+      {attachments.length > 0 && (
+        <div className="relative mt-5 flex flex-wrap gap-2">
+          {attachments.map((a) => (
+            <span
+              key={a.id}
+              className="inline-flex items-center gap-2 rounded-full bg-bg/50 px-3 py-1.5 text-[11px] ring-1 ring-white/5"
+            >
+              <Paperclip size={12} className="text-teal" />
+              <span className="max-w-[180px] truncate font-medium text-foreground/90">
+                {a.parsed.name}
+              </span>
+              <span className="text-muted">
+                {a.parsed.kind}
+                {a.parsed.truncated ? " · truncated" : ""}
+                {a.uploaded ? " · saved" : ""}
+              </span>
+              <button
+                type="button"
+                aria-label={`Remove ${a.parsed.name}`}
+                onClick={() => removeAttachment(a.id)}
+                className="ml-1 text-muted hover:text-foreground"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="relative mt-6 rounded-2xl bg-bg/40 ring-1 ring-white/5">
         <div className="flex items-center gap-2 border-b border-white/5 px-3 py-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
@@ -177,7 +338,28 @@ export default function ResearchPage() {
           placeholder="Type or paste your project here…"
         />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/5 px-3 py-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.txt,.md,.csv,.json,.html,.xml,application/pdf,text/*,image/*"
+              className="hidden"
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={attaching}
+              className="inline-flex items-center gap-2 rounded-2xl bg-surface/60 px-3.5 py-2 text-xs font-semibold text-foreground ring-1 ring-white/5 hover:bg-surface disabled:opacity-50"
+            >
+              {attaching ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Paperclip size={14} />
+              )}
+              Attach file
+            </button>
             <button
               type="button"
               onClick={reset}
@@ -185,7 +367,7 @@ export default function ResearchPage() {
               className="inline-flex items-center gap-2 rounded-2xl bg-surface/60 px-3.5 py-2 text-xs font-semibold text-foreground ring-1 ring-white/5 hover:bg-surface disabled:opacity-50"
             >
               <Upload size={14} />
-              Reset suggestions
+              Reset
             </button>
           </div>
           <button

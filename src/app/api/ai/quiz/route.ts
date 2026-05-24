@@ -6,6 +6,7 @@ import {
 } from "@/lib/ai/schemas";
 import { jsonChat, OpenRouterError } from "@/lib/ai/openrouter";
 import { hasApiKey } from "@/lib/ai/models";
+import { readCache, writeCache } from "@/lib/ai/cache";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,24 @@ export async function POST(request: Request) {
     ? `\n\nUse the following notes as the primary source. Quote and probe ideas from them:\n"""\n${parsed.data.source.slice(0, 16_000)}\n"""`
     : "";
 
+  const cacheInput = {
+    topic: parsed.data.topic.trim(),
+    count,
+    source: parsed.data.source?.trim() ?? null,
+  };
+  const cached = await readCache<QuizPayload>("quiz", "quiz", cacheInput);
+  if (cached.hit) {
+    return Response.json(
+      { ...cached.data, model: cached.model, cached: true },
+      {
+        headers: {
+          "X-LearnMate-Model": cached.model,
+          "X-LearnMate-Cache": "hit",
+        },
+      },
+    );
+  }
+
   const messages: ChatMessage[] = [
     { role: "system", content: SYSTEM },
     {
@@ -65,9 +84,16 @@ export async function POST(request: Request) {
       validate: (candidate) => QuizPayload.safeParse(candidate).success,
     });
 
+    void writeCache("quiz", "quiz", cacheInput, validated, model);
+
     return Response.json(
       { ...validated, model },
-      { headers: { "X-LearnMate-Model": model } },
+      {
+        headers: {
+          "X-LearnMate-Model": model,
+          "X-LearnMate-Cache": "miss",
+        },
+      },
     );
   } catch (err) {
     if ((err as { name?: string })?.name === "AbortError") {

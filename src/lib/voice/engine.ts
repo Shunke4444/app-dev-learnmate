@@ -1,32 +1,25 @@
-// Remembers which speech-recognition engine worked last time so Brave / Arc
-// users don't burn a Web Speech round-trip on every page load just to discover
-// it's still blocked.
+// Always start in `auto`: a sticky `web-speech` made Brave/Arc users retry the
+// broken cloud path on every page load. Auto lets the recognition wrapper swap
+// to whisper transparently on network errors.
 
 import type { EngineChoice } from "./recognition";
-
-const KEY = "lm:voice-engine";
+import { readLocalPrefs, updatePreferences } from "@/lib/db/preferences";
 
 export function loadPreferredEngine(): EngineChoice {
-  // Always start in auto mode. The wrapper will swap to whisper transparently
-  // on network errors. Storing "web-speech" as a sticky preference caused
-  // Brave/Arc users to retry the broken cloud path on every page load.
   return "auto";
 }
 
 export function rememberEngine(engine: "web-speech" | "whisper") {
   if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(KEY, engine);
-  } catch {
-    // ignore
-  }
+  void updatePreferences({ voiceEngine: engine });
 }
 
 export function clearEnginePreference() {
   if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(KEY);
-  } catch {
-    // ignore
-  }
+  void updatePreferences({ voiceEngine: "auto" });
+}
+
+export function getCachedEngine(): "auto" | "web-speech" | "whisper" {
+  if (typeof window === "undefined") return "auto";
+  return readLocalPrefs().voiceEngine;
 }

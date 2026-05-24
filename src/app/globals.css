@@ -243,6 +243,27 @@ html.lm-no-scrollbar body::-webkit-scrollbar {
   display: none;
 }
 
+/* ===== Features coverflow ===== */
+.lm-cf-spot {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(220px circle at var(--lm-x, 50%) var(--lm-y, 50%),
+    rgba(52,224,196,0.32),
+    rgba(200,246,93,0.10) 40%,
+    transparent 60%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 240ms ease;
+  pointer-events: none;
+}
+.lm-cf-card.lm-cf-focused .lm-cf-spot { opacity: 1; }
+.lm-cf-card.lm-cf-focused .lm-cf-inner {
+  box-shadow:
+    0 50px 140px rgba(52,224,196,0.18),
+    0 30px 100px rgba(0,0,0,0.55);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lm-reveal,
   .lm-grid,

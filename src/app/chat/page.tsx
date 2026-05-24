@@ -9,6 +9,7 @@ import {
   appendMessage,
   getOrCreateChat,
   listMessages,
+  maybeRenameChat,
   pruneEmptyMessages,
   type Chat,
   type Id,
@@ -147,9 +148,13 @@ export default function ChatPage() {
     setStreaming(true);
 
     const chat = chatRef.current;
+    const isFirstUserMessage = !messages.some((m) => m.role === "user");
     if (chat?.id != null) {
       try {
         await appendMessage(chat.id, "user", composed);
+        if (isFirstUserMessage) {
+          void maybeRenameChat(chat.id, trimmed || composed);
+        }
       } catch (err) {
         console.warn("Dexie write failed:", err);
       }

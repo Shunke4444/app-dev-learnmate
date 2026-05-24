@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronRight, Loader2, Sparkles, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import type { QuizPayload } from "@/lib/ai/schemas";
 import { saveQuiz, saveQuizAttempt, type Id } from "@/lib/db/sync";
+import { FALLBACKS, listPromptSuggestions } from "@/lib/db/suggestions";
 
 type Stage = "setup" | "playing" | "done";
 
@@ -14,14 +15,6 @@ type ErrorState =
   | { kind: "missing_key" }
   | { kind: "chain_exhausted" }
   | { kind: "generic"; message: string };
-
-const TOPIC_SUGGESTIONS = [
-  "Python loops & comprehensions",
-  "Photosynthesis basics",
-  "World War II causes",
-  "Mitosis vs meiosis",
-  "Pythagorean theorem",
-];
 
 export default function QuizPage() {
   const [topic, setTopic] = useState("");
@@ -34,6 +27,19 @@ export default function QuizPage() {
   const [step, setStep] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [error, setError] = useState<ErrorState>({ kind: "none" });
+  const [topicSuggestions, setTopicSuggestions] =
+    useState<string[]>(FALLBACKS.quiz);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listPromptSuggestions("quiz").then((rows) => {
+      if (cancelled || rows.length === 0) return;
+      setTopicSuggestions(rows.map((r) => r.label));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const current = quiz?.questions[step];
   const total = quiz?.questions.length ?? 0;
@@ -154,6 +160,7 @@ export default function QuizPage() {
               setTopic(s);
               generate(s);
             }}
+            suggestions={topicSuggestions}
           />
         )}
 
@@ -196,6 +203,7 @@ function SetupPanel(props: {
   error: ErrorState;
   onGenerate: () => void;
   onSuggestion: (s: string) => void;
+  suggestions: string[];
 }) {
   return (
     <section className="lm-rise relative overflow-hidden rounded-[var(--radius-card)] bg-surface/45 p-6 ring-1 ring-white/5 backdrop-blur-xl lg:p-8">
@@ -265,7 +273,7 @@ function SetupPanel(props: {
             Or try
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {TOPIC_SUGGESTIONS.map((s) => (
+            {props.suggestions.map((s) => (
               <button
                 key={s}
                 type="button"

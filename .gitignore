@@ -47,3 +47,11 @@ next-env.d.ts
 /public/swe-worker-*.js.map
 /public/workbox-*.js
 /public/workbox-*.js.map
+
+# local QA / scratch artifacts — do NOT publish
+# (/*.png ignores only root-level screenshots; public/AI.png is kept)
+# (delete the rowena.pdf line below if you intentionally want the paper public)
+.playwright-mcp/
+/*.png
+rowena.pdf
+docs/superpowers/

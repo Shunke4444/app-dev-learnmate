@@ -4,9 +4,7 @@
 // to Dexie (IndexedDB) for guests / users without Supabase configured.
 // Same shape as src/lib/db/dexie.ts so consumers can import from here instead.
 
-import { createClient } from "@/lib/supabase/client";
-import { getCurrentUserId } from "@/lib/auth/store";
-import { hasSupabaseConfig } from "@/lib/auth/config";
+import { sb, activeUserId, tsToMs } from "@/lib/db/_client";
 import * as dex from "@/lib/db/dexie";
 
 // Re-export shared shapes. We widen `id` to allow string UUIDs from Supabase.
@@ -59,26 +57,6 @@ export interface ResearchDoc {
   summary?: string;
   createdAt: number;
   updatedAt: number;
-}
-
-// ---------------------------------------------------------------------------
-// Supabase client (lazy, browser-only).
-// ---------------------------------------------------------------------------
-let _sb: ReturnType<typeof createClient> | null = null;
-function sb() {
-  if (!_sb) _sb = createClient();
-  return _sb;
-}
-
-function activeUserId(): string | null {
-  if (!hasSupabaseConfig()) return null;
-  return getCurrentUserId();
-}
-
-function tsToMs(s: string | null | undefined): number {
-  if (!s) return Date.now();
-  const n = Date.parse(s);
-  return Number.isFinite(n) ? n : Date.now();
 }
 
 // ---------------------------------------------------------------------------
@@ -254,6 +232,37 @@ export async function pruneEmptyMessages(chatId: Id): Promise<void> {
     .eq("text", "");
 }
 
+// Trim a candidate title from a message body — first sentence-ish, max ~80 chars.
+function deriveTitle(raw: string): string {
+  const stripped = raw
+    .replace(/\n*--- attachment:[\s\S]*?--- end attachment ---\n*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!stripped) return "";
+  const head = stripped.length > 80 ? stripped.slice(0, 77).trimEnd() + "…" : stripped;
+  return head;
+}
+
+export async function maybeRenameChat(chatId: Id, fromMessage: string): Promise<void> {
+  const title = deriveTitle(fromMessage);
+  if (!title) return;
+  const uid = activeUserId();
+  if (!uid) {
+    try {
+      await dex.db().chats.update(chatId as number, { title });
+    } catch {
+      // ignore — Dexie unavailable
+    }
+    return;
+  }
+  // Only overwrite the default placeholder, never a user-derived title.
+  await sb()
+    .from("chats")
+    .update({ title })
+    .eq("id", chatId as string)
+    .in("title", ["Chat with Bot", "Talk with Bot"]);
+}
+
 // ---------------------------------------------------------------------------
 // Note sessions
 // ---------------------------------------------------------------------------
@@ -350,8 +359,26 @@ export async function getNoteSession(id: Id): Promise<NoteSession | undefined> {
 export async function deleteNoteSession(id: Id): Promise<void> {
   const uid = activeUserId();
   if (!uid) return dex.deleteNoteSession(id as number);
-  // ON DELETE SET NULL cascades quizzes.source_note_id; we also remove the
-  // orphan quizzes explicitly so attempts aren't stranded.
+
+  // 1. Remove storage blobs first — FK cascade will drop note_attachments rows,
+  //    but blobs in the note-audio bucket would otherwise orphan.
+  const { data: attachments } = await sb()
+    .from("note_attachments")
+    .select("storage_path")
+    .eq("note_id", id as string);
+  const paths = ((attachments ?? []) as { storage_path: string }[])
+    .map((a) => a.storage_path)
+    .filter(Boolean);
+  if (paths.length > 0) {
+    try {
+      await sb().storage.from("note-audio").remove(paths);
+    } catch {
+      // best-effort — the row delete still proceeds
+    }
+  }
+
+  // 2. ON DELETE SET NULL cascades quizzes.source_note_id; we also remove the
+  //    orphan quizzes explicitly so attempts aren't stranded.
   const { data: orphanQuizzes } = await sb()
     .from("quizzes")
     .select("id")

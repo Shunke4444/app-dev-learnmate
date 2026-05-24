@@ -38,6 +38,14 @@ export default function LoginPage() {
     if (hydrated && user) router.replace("/home");
   }, [hydrated, user, router]);
 
+  // Honor the requested mode from the welcome screen (e.g. /login?mode=signup).
+  // Done in an effect (not initial state) to avoid an SSR hydration mismatch.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const requested = new URLSearchParams(window.location.search).get("mode");
+    if (requested === "signup") setMode("signup");
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);

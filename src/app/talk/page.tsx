@@ -19,18 +19,20 @@ import {
   isWebSpeechSupported,
 } from "@/lib/voice/recognition";
 import { loadPreferredEngine, rememberEngine } from "@/lib/voice/engine";
+import { FALLBACKS, listPromptSuggestions } from "@/lib/db/suggestions";
 import { onWhisperProgress, type WhisperProgress } from "@/lib/voice/whisper";
 import { cancelSpeech, isTtsSupported, speak } from "@/lib/voice/tts";
 import { useMicLevel } from "@/lib/voice/waveform";
+import {
+  appendMessage,
+  getOrCreateChat,
+  listMessages,
+  maybeRenameChat,
+  type Chat,
+  type Id,
+} from "@/lib/db/sync";
 
 type TranscriptLine = { role: "you" | "bot"; text: string };
-
-const presets = [
-  "Take notes for my class",
-  "Quiz me on Python loops",
-  "Summarize last lecture",
-  "Translate to Spanish",
-];
 
 const SYSTEM =
   "You are LearnMate, a voice-first study buddy. Reply in 1–3 short sentences — " +
@@ -59,11 +61,71 @@ export default function TalkPage() {
   const recRef = useRef<ReturnType<typeof createRecognition> | null>(null);
   const sendingRef = useRef(false);
   const linesRef = useRef<TranscriptLine[]>([]);
+  const chatRef = useRef<Chat | null>(null);
+  const firstUserSavedRef = useRef(false);
   const { level: micLevel, error: micError } = useMicLevel(active);
+  const [presets, setPresets] = useState<string[]>(FALLBACKS.talk);
 
   useEffect(() => {
     linesRef.current = lines;
   }, [lines]);
+
+  // Hydrate prior voice transcript from DB on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const chat = await getOrCreateChat("talk");
+        if (cancelled) return;
+        chatRef.current = chat;
+        const stored = await listMessages(chat.id);
+        if (cancelled || stored.length === 0) return;
+        firstUserSavedRef.current = stored.some((m) => m.role === "user");
+        setLines(
+          stored.map((m) => ({
+            role: m.role === "user" ? ("you" as const) : ("bot" as const),
+            text: m.text,
+          })),
+        );
+      } catch (err) {
+        console.warn("Voice hydrate failed:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function persistTurn(role: "you" | "bot", text: string): Promise<Id | undefined> {
+    const chat = chatRef.current;
+    if (!chat?.id || !text.trim()) return undefined;
+    try {
+      const id = await appendMessage(
+        chat.id,
+        role === "you" ? "user" : "assistant",
+        text,
+      );
+      if (role === "you" && !firstUserSavedRef.current) {
+        firstUserSavedRef.current = true;
+        void maybeRenameChat(chat.id, text);
+      }
+      return id;
+    } catch (err) {
+      console.warn("Voice persist failed:", err);
+      return undefined;
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    void listPromptSuggestions("talk").then((rows) => {
+      if (cancelled || rows.length === 0) return;
+      setPresets(rows.map((r) => r.label));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const off = onWhisperProgress((p) => setWhisperStatus(p));
@@ -83,6 +145,7 @@ export default function TalkPage() {
     if (!clean) return;
     sendingRef.current = true;
     setLines((l) => [...l, { role: "you", text: clean }]);
+    void persistTurn("you", clean);
 
     // Build history (last 8 turns) for context.
     const history = [...linesRef.current, { role: "you", text: clean } as TranscriptLine]
@@ -139,6 +202,7 @@ export default function TalkPage() {
         });
       }
       if (acc.trim()) {
+        void persistTurn("bot", acc);
         setSpeaking(true);
         speak(acc, {
           onEnd: () => setSpeaking(false),

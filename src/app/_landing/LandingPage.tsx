@@ -16,7 +16,6 @@ import {
   BookOpen,
   Sparkles,
   FileText,
-  Play,
   Check,
   Lock,
   Zap,
@@ -27,6 +26,7 @@ import {
   Wifi,
   HeartHandshake,
 } from "lucide-react";
+import { Hero3D } from "./Hero3D";
 
 /* ───────────────────────── hooks & helpers ───────────────────────── */
 
@@ -201,18 +201,27 @@ function Waveform({
 
 function Nav() {
   const [scrolled, setScrolled] = useState(false);
+  const [visible, setVisible] = useState(false);
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 8);
+      setVisible(y > window.innerHeight * 4.6);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ${
         scrolled ? "py-3" : "py-5"
-      }`}
+      } ${visible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-full opacity-0"}`}
     >
       <div
         className={`mx-auto flex max-w-6xl items-center justify-between rounded-2xl px-4 py-2.5 transition-all duration-500 ${
@@ -272,183 +281,6 @@ function Nav() {
         </div>
       </div>
     </header>
-  );
-}
-
-/* ───────────────────────── hero ───────────────────────── */
-
-function Hero() {
-  return (
-    <section className="relative isolate overflow-hidden pb-16 pt-32 md:pt-36">
-      {/* layered backgrounds */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 [background:radial-gradient(1200px_circle_at_18%_12%,rgba(52,224,196,0.18),transparent_60%),radial-gradient(1100px_circle_at_88%_18%,rgba(201,167,245,0.16),transparent_58%),radial-gradient(1100px_circle_at_50%_110%,rgba(247,184,210,0.12),transparent_60%)]"
-      />
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 lm-grid opacity-40" />
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 lm-noise opacity-30" />
-
-      <div className="mx-auto max-w-6xl px-5">
-        <div className="grid items-center gap-10 md:grid-cols-[1.05fr_1fr]">
-          <div>
-            <Reveal>
-              <div className="inline-flex items-center gap-2 rounded-full border border-teal/30 bg-teal/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-teal">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal/70" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal" />
-                </span>
-                Free forever · no card
-              </div>
-            </Reveal>
-
-            <Reveal delay={80}>
-              <h1 className="mt-6 text-balance text-[40px] font-semibold leading-[0.95] tracking-tight sm:text-[52px] lg:text-[62px]">
-                <span className="lm-text-grad">Your study buddy</span>
-                <br />
-                <span className="lm-text-teal-grad italic">that actually listens.</span>
-              </h1>
-            </Reveal>
-
-            <Reveal delay={160}>
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-muted md:text-lg">
-                LearnMate hears you, summarizes your notes, builds quizzes you'll
-                actually pass, and edits your research — all in your browser.
-                Powered by free models. Zero subscription. Yours forever.
-              </p>
-            </Reveal>
-
-            <Reveal delay={240}>
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link
-                  href="/welcome"
-                  className="group relative inline-flex h-12 items-center gap-2 overflow-hidden rounded-full bg-teal px-5 text-sm font-semibold text-black transition hover:bg-[#5af3d6]"
-                >
-                  Start studying free
-                  <ArrowUpRight size={16} className="transition group-hover:rotate-45" />
-                  <span className="lm-shine absolute inset-0" />
-                </Link>
-                <a
-                  href="#voice"
-                  className="group inline-flex h-12 items-center gap-2 rounded-full bg-surface/70 px-5 text-sm font-medium text-foreground ring-1 ring-white/10 backdrop-blur transition hover:bg-surface"
-                >
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-teal/20 text-teal">
-                    <Play size={12} fill="currentColor" />
-                  </span>
-                  See it talk
-                </a>
-              </div>
-            </Reveal>
-
-            <Reveal delay={320}>
-              <dl className="mt-12 grid max-w-md grid-cols-3 gap-6 border-t border-white/5 pt-6 text-left">
-                <Stat k="$0" v="forever cost" />
-                <Stat k="13" v="study screens" />
-                <Stat k="6" v="free AI models" />
-              </dl>
-            </Reveal>
-          </div>
-
-          {/* mascot column */}
-          <div className="relative flex items-center justify-center">
-            <div
-              aria-hidden
-              className="absolute -inset-10 -z-10 rounded-[40%] bg-teal/10 blur-3xl"
-            />
-            <div style={{ animation: "lm-float 7s ease-in-out infinite" }}>
-              <HeroMascot size={380} />
-            </div>
-
-            {/* floating chips around mascot */}
-            <FloatingChip
-              className="left-[-2%] top-[18%]"
-              tone="lime"
-              icon={<Mic size={14} />}
-              label="Listening…"
-            />
-            <FloatingChip
-              className="right-[-2%] top-[10%]"
-              tone="purple"
-              icon={<MessageSquare size={14} />}
-              label="Streaming reply"
-            />
-            <FloatingChip
-              className="left-[6%] bottom-[10%]"
-              tone="pink"
-              icon={<Sparkles size={14} />}
-              label="Quiz ready"
-            />
-            <FloatingChip
-              className="right-[2%] bottom-[18%]"
-              tone="teal"
-              icon={<Check size={14} />}
-              label="Saved offline"
-            />
-          </div>
-        </div>
-
-        {/* hero waveform footer */}
-        <Reveal delay={420}>
-          <div className="mt-14 flex items-center justify-between rounded-2xl bg-surface/50 px-5 py-4 ring-1 ring-white/5 backdrop-blur">
-            <div className="flex items-center gap-3 text-xs text-muted">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal/15 text-teal">
-                <Mic size={13} />
-              </span>
-              <span className="hidden sm:inline">
-                "Take notes for my python class"
-              </span>
-              <span className="sm:hidden">Voice in, AI out</span>
-            </div>
-            <Waveform bars={28} tone="teal" className="opacity-90" />
-            <div className="hidden text-xs text-muted sm:block">
-              Web Speech · Whisper fallback
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-function Stat({ k, v }: { k: string; v: string }) {
-  return (
-    <div>
-      <dt className="text-2xl font-semibold text-foreground md:text-3xl">{k}</dt>
-      <dd className="mt-1 text-xs uppercase tracking-wider text-muted">{v}</dd>
-    </div>
-  );
-}
-
-function FloatingChip({
-  className,
-  tone,
-  icon,
-  label,
-}: {
-  className?: string;
-  tone: "teal" | "lime" | "purple" | "pink";
-  icon: ReactNode;
-  label: string;
-}) {
-  const bg =
-    tone === "teal"
-      ? "bg-teal/20 text-teal ring-teal/30"
-      : tone === "lime"
-        ? "bg-lime/20 text-lime ring-lime/30"
-        : tone === "purple"
-          ? "bg-purple/20 text-purple ring-purple/40"
-          : "bg-pink/25 text-pink ring-pink/40";
-  return (
-    <div
-      className={`absolute hidden md:inline-flex ${className ?? ""}`}
-      style={{ animation: "lm-float 6s ease-in-out infinite" }}
-    >
-      <div
-        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ring-1 backdrop-blur ${bg}`}
-      >
-        {icon}
-        <span>{label}</span>
-      </div>
-    </div>
   );
 }
 
@@ -714,10 +546,258 @@ function PrivacyPreview() {
   );
 }
 
+type FeatureItem = {
+  tone: FeatureTone;
+  icon: ReactNode;
+  title: string;
+  body: string;
+  preview: ReactNode;
+  size?: "md" | "lg" | "tall";
+};
+
+function toneColor(tone: FeatureTone): string {
+  switch (tone) {
+    case "lime":
+      return "var(--lime)";
+    case "purple":
+      return "var(--purple)";
+    case "teal":
+      return "var(--teal)";
+    case "pink":
+      return "var(--pink)";
+    case "blue":
+      return "var(--blue)";
+    default:
+      return "#7AE3CC";
+  }
+}
+
+function CoverCard({ tone, icon, title, body, preview }: FeatureItem) {
+  return (
+    <div className="lm-cf-inner relative flex h-full flex-col overflow-hidden rounded-[28px] bg-surface p-6 ring-1 ring-white/10 shadow-[0_40px_120px_rgba(0,0,0,0.7)]">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full opacity-30 blur-3xl"
+        style={{ background: toneColor(tone) }}
+      />
+      <span aria-hidden className="lm-cf-spot" />
+      <div className="relative flex items-start justify-between">
+        <ToneSwatch tone={tone} icon={icon} />
+        <ArrowUpRight size={18} className="text-muted" />
+      </div>
+      <h3 className="relative mt-5 text-2xl font-semibold tracking-tight">{title}</h3>
+      <p className="relative mt-2 max-w-md text-sm leading-relaxed text-muted">{body}</p>
+      <div className="relative mt-5">{preview}</div>
+    </div>
+  );
+}
+
+function FeaturesCoverflow({ cards }: { cards: FeatureItem[] }) {
+  const sectionRef = useRef<HTMLDivElement | null>(null);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const dotRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const focusedRef = useRef(0);
+  const pointerRef = useRef({ x: 0, y: 0, inside: false });
+  const N = cards.length;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
+
+    let raf = 0;
+    const frame = () => {
+      raf = 0;
+      const section = sectionRef.current;
+      if (!section) return;
+      const r = section.getBoundingClientRect();
+      const total = Math.max(1, section.offsetHeight - window.innerHeight);
+      const p = Math.min(1, Math.max(0, -r.top / total));
+      const center = p * (N - 1);
+      const focused = Math.round(center);
+      const isSm = window.innerWidth < 640;
+      // Offset adjacent cards by ~the card's own width so neighbors only peek
+      // at the edges instead of stacking on top of the focused card.
+      const cardW = Math.min(window.innerWidth * 0.86, 340);
+      const STEP = Math.round(cardW * (isSm ? 0.7 : 0.86));
+      const ANG = isSm ? -22 : -32;
+
+      cardRefs.current.forEach((el, i) => {
+        if (!el) return;
+        const offset = i - center;
+        const abs = Math.abs(offset);
+        const clamped = Math.max(-2.5, Math.min(2.5, offset));
+        const tx = clamped * STEP;
+        const ry = clamped * ANG;
+        const sc = Math.max(0.62, 1 - abs * 0.11);
+        const op = Math.max(0, 1 - abs * 0.55);
+        const z = N - Math.round(abs);
+
+        let tiltX = 0;
+        let tiltY = 0;
+        if (i === focused && pointerRef.current.inside) {
+          tiltX = -pointerRef.current.y * 8;
+          tiltY = pointerRef.current.x * 8;
+        }
+
+        el.style.transform = `translate3d(-50%, -50%, 0) translateX(${tx}px) rotateY(${ry + tiltY}deg) rotateX(${tiltX}deg) scale(${sc})`;
+        el.style.opacity = String(op);
+        el.style.zIndex = String(z);
+        el.classList.toggle("lm-cf-focused", i === focused);
+      });
+
+      dotRefs.current.forEach((d, i) => {
+        if (!d) return;
+        const active = i === focused;
+        d.style.width = active ? "20px" : "6px";
+        d.style.background = active ? "var(--teal)" : "rgba(255,255,255,0.2)";
+      });
+
+      focusedRef.current = focused;
+    };
+
+    const schedule = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(frame);
+    };
+
+    const onMove = (e: PointerEvent) => {
+      const focused = focusedRef.current;
+      const el = cardRefs.current[focused];
+      if (!el) {
+        pointerRef.current.inside = false;
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      const inside =
+        e.clientX >= r.left &&
+        e.clientX <= r.right &&
+        e.clientY >= r.top &&
+        e.clientY <= r.bottom;
+      if (inside) {
+        const px = (e.clientX - r.left) / r.width;
+        const py = (e.clientY - r.top) / r.height;
+        pointerRef.current.x = px - 0.5;
+        pointerRef.current.y = py - 0.5;
+        pointerRef.current.inside = true;
+        el.style.setProperty("--lm-x", `${px * 100}%`);
+        el.style.setProperty("--lm-y", `${py * 100}%`);
+        schedule();
+      } else if (pointerRef.current.inside) {
+        pointerRef.current.inside = false;
+        schedule();
+      }
+    };
+
+    frame();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("pointermove", onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [N]);
+
+  return (
+    <div
+      ref={sectionRef}
+      className="relative"
+      style={{ height: `${100 + (N - 1) * 70}vh` }}
+    >
+      <div className="sticky top-0 grid h-screen place-items-center overflow-hidden [perspective:1800px]">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[60vmin] w-[80vmin] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            background:
+              "radial-gradient(closest-side, rgba(52,224,196,0.26), rgba(200,246,93,0.10) 50%, transparent 78%)",
+            filter: "blur(14px)",
+          }}
+        />
+        <div className="relative h-[480px] w-full [transform-style:preserve-3d]">
+          {cards.map((c, i) => (
+            <div
+              key={c.title}
+              ref={(el) => {
+                cardRefs.current[i] = el;
+              }}
+              className="lm-cf-card absolute left-1/2 top-1/2 h-[460px] w-[min(86vw,340px)] origin-center will-change-transform"
+              style={{ transform: "translate3d(-50%, -50%, 0)" }}
+            >
+              <CoverCard {...c} />
+            </div>
+          ))}
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-10 z-10 flex items-center justify-center gap-2">
+          {cards.map((_, i) => (
+            <span
+              key={i}
+              ref={(el) => {
+                dotRefs.current[i] = el;
+              }}
+              className="h-1.5 rounded-full transition-all duration-300"
+              style={{ width: "6px", background: "rgba(255,255,255,0.2)" }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const FEATURE_CARDS: FeatureItem[] = [
+  {
+    tone: "lime",
+    icon: <Mic size={18} />,
+    title: "Talk with Bot",
+    body: "Press once. Talk. Hear it back. Real-time speech in, real-time voice out — the way you study with a friend, except this one never gets tired.",
+    preview: <TalkPreview />,
+    size: "lg",
+  },
+  {
+    tone: "purple",
+    icon: <MessageSquare size={18} />,
+    title: "Chat with Bot",
+    body: "Streamed answers, code-aware, full history. Pin a chat to keep grinding the same topic.",
+    preview: <ChatPreview />,
+  },
+  {
+    tone: "teal",
+    icon: <BookOpen size={18} />,
+    title: "Take Notes",
+    body: "Speak. We transcribe. Then summarize, rewrite, or turn it into a quiz with one tap.",
+    preview: <NotesPreview />,
+  },
+  {
+    tone: "pink",
+    icon: <Sparkles size={18} />,
+    title: "Quiz with Bot",
+    body: "Five sharp MCQs from any note or topic. Tap or speak your answer. Instant feedback + rationale.",
+    preview: <QuizPreview />,
+  },
+  {
+    tone: "blue",
+    icon: <FileText size={18} />,
+    title: "Research Assistant",
+    body: "Paste, upload, or scan a paper. Get a quality score, inline edits, and grammar fixes you can accept one at a time.",
+    preview: <ResearchPreview />,
+  },
+  {
+    tone: "mint",
+    icon: <Lock size={18} />,
+    title: "Local & Private",
+    body: "No login required. Notes, quizzes, and chats live in your browser — close the tab, it stays yours.",
+    preview: <PrivacyPreview />,
+  },
+];
+
 function Features() {
   return (
-    <section id="features" className="relative py-24 md:py-32">
-      <div className="mx-auto max-w-6xl px-5">
+    <section id="features" className="relative">
+      <div className="mx-auto max-w-6xl px-5 pt-24 md:pt-32">
         <Reveal>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-teal">
             Six tools, one buddy
@@ -735,51 +815,17 @@ function Features() {
             your quizzes feed your weak spots, and the mascot keeps you company.
           </p>
         </Reveal>
+      </div>
 
+      <div className="motion-safe:block motion-reduce:hidden">
+        <FeaturesCoverflow cards={FEATURE_CARDS} />
+      </div>
+
+      <div className="mx-auto max-w-6xl px-5 pb-24 motion-safe:hidden motion-reduce:block md:pb-32">
         <div className="mt-14 grid gap-4 md:grid-cols-3">
-          <FeatureCard
-            tone="lime"
-            icon={<Mic size={18} />}
-            title="Talk with Bot"
-            body="Press once. Talk. Hear it back. Real-time speech in, real-time voice out — the way you study with a friend, except this one never gets tired."
-            preview={<TalkPreview />}
-            size="lg"
-          />
-          <FeatureCard
-            tone="purple"
-            icon={<MessageSquare size={18} />}
-            title="Chat with Bot"
-            body="Streamed answers, code-aware, full history. Pin a chat to keep grinding the same topic."
-            preview={<ChatPreview />}
-          />
-          <FeatureCard
-            tone="teal"
-            icon={<BookOpen size={18} />}
-            title="Take Notes"
-            body="Speak. We transcribe. Then summarize, rewrite, or turn it into a quiz with one tap."
-            preview={<NotesPreview />}
-          />
-          <FeatureCard
-            tone="pink"
-            icon={<Sparkles size={18} />}
-            title="Quiz with Bot"
-            body="Five sharp MCQs from any note or topic. Tap or speak your answer. Instant feedback + rationale."
-            preview={<QuizPreview />}
-          />
-          <FeatureCard
-            tone="blue"
-            icon={<FileText size={18} />}
-            title="Research Assistant"
-            body="Paste, upload, or scan a paper. Get a quality score, inline edits, and grammar fixes you can accept one at a time."
-            preview={<ResearchPreview />}
-          />
-          <FeatureCard
-            tone="mint"
-            icon={<Lock size={18} />}
-            title="Local & Private"
-            body="No login required. Notes, quizzes, and chats live in your browser — close the tab, it stays yours."
-            preview={<PrivacyPreview />}
-          />
+          {FEATURE_CARDS.map((c) => (
+            <FeatureCard key={c.title} {...c} />
+          ))}
         </div>
       </div>
     </section>
@@ -1545,10 +1591,10 @@ export default function LandingPage() {
     };
   }, []);
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-bg text-foreground">
+    <div className="relative min-h-dvh overflow-x-clip bg-bg text-foreground">
       <Nav />
       <main className="relative">
-        <Hero />
+        <Hero3D />
         <Marquee />
         <Features />
         <VoiceShowcase />

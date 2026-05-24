@@ -29,9 +29,9 @@ export function ActionCard({
   return (
     <div
       className={
-        "group relative overflow-hidden rounded-[var(--radius-card)] p-5 text-black shadow-[var(--shadow-soft)] lm-card-hover " +
+        "group relative min-w-0 overflow-hidden rounded-[var(--radius-card)] p-5 pb-14 text-black shadow-[var(--shadow-soft)] lm-card-hover " +
         bg +
-        (compact ? " h-[120px]" : " h-[260px]")
+        (compact ? " min-h-[120px]" : " min-h-[260px]")
       }
     >
       <div

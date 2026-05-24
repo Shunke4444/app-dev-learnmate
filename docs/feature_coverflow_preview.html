@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LearnMate · Coverflow features (scroll + spotlight + magnetic)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0f0e; --surface:#15191a; --surface2:#1e2422;
+    --foreground:#ffffff; --muted:#8a938f;
+    --teal:#34e0c4; --lime:#c8f65d; --purple:#c9a7f5;
+    --pink:#f7b8d2; --blue:#3b6fe0; --green:#5bd75b; --red:#e0584f; --mint:#7AE3CC;
+    --radius:28px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--foreground);
+    font-family:'Poppins',ui-sans-serif,system-ui,-apple-system,sans-serif; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px; margin:0 auto; padding:0 20px}
+
+  /* spacer copy so you have something to scroll from */
+  .pad{padding:90px 0 40px}
+  .eyebrow{font-size:11px; font-weight:600; letter-spacing:.22em; text-transform:uppercase; color:var(--teal)}
+  .pad h1{font-size:clamp(28px,5vw,50px); font-weight:600; letter-spacing:-.02em; margin:12px 0 0; line-height:1.06}
+  .pad h1 .it{font-style:italic; color:var(--teal)}
+  .pad p{color:var(--muted); max-width:600px; margin:16px 0 0; font-size:15px; line-height:1.6}
+  .scrollhint{display:inline-flex; align-items:center; gap:8px; margin-top:26px; font-size:12px; color:var(--muted)}
+  .scrollhint .m{width:20px;height:32px;border:1.5px solid var(--muted);border-radius:12px;position:relative}
+  .scrollhint .m::after{content:"";position:absolute;left:50%;top:6px;width:3px;height:6px;border-radius:3px;background:var(--teal);transform:translateX(-50%);animation:sw 1.4s infinite}
+  @keyframes sw{0%{opacity:0;transform:translate(-50%,0)}30%{opacity:1}100%{opacity:0;transform:translate(-50%,10px)}}
+
+  /* ── coverflow section ── */
+  .cf{position:relative}
+  .cf-sticky{position:sticky; top:0; height:100vh; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center}
+  .cf-bg{position:absolute; inset:0; z-index:0;
+    background:radial-gradient(620px 460px at 50% 52%, color-mix(in oklab,var(--teal) 22%,transparent), transparent 60%),
+               radial-gradient(520px 420px at 50% 60%, color-mix(in oklab,var(--lime) 12%,transparent), transparent 62%);
+    animation:breathe 7s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.85}50%{opacity:1}}
+  .cf-label{position:absolute; top:34px; left:0; right:0; z-index:6; text-align:center}
+  .cf-label .k{font-size:11px; font-weight:700; letter-spacing:.28em; text-transform:uppercase; color:var(--muted)}
+  .cf-label h2{margin:8px 0 0; font-size:clamp(22px,3.2vw,34px); font-weight:600; letter-spacing:-.02em}
+  .cf-label h2 .it{font-style:italic; color:var(--teal)}
+
+  .cf-stage{position:relative; z-index:3; width:100%; height:70vh; perspective:1500px}
+  .cf-card{position:absolute; left:50%; top:50%; width:330px; height:430px;
+    transform-style:preserve-3d; will-change:transform,opacity; transition:opacity .25s}
+  @media(max-width:760px){ .cf-card{width:248px; height:360px} }
+
+  .cf-inner{position:relative; width:100%; height:100%; border-radius:var(--radius);
+    background:color-mix(in oklab,var(--surface) 78%,transparent); border:1px solid rgba(255,255,255,.08);
+    padding:22px; overflow:hidden; transition:transform .12s ease-out, box-shadow .3s;
+    box-shadow:0 40px 80px -34px rgba(0,0,0,.9); transform-style:preserve-3d}
+  .cf-inner .glow{position:absolute; right:-50px; top:-50px; width:190px; height:190px; border-radius:999px; filter:blur(52px); opacity:.34; transition:opacity .35s}
+  /* spotlight: inner light + traced border, follows cursor on focused card */
+  .cf-inner::before{content:""; position:absolute; inset:0; border-radius:inherit; opacity:0; transition:opacity .3s; pointer-events:none;
+    background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.10), transparent 60%)}
+  .cf-inner::after{content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none; opacity:0; transition:opacity .3s;
+    background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%), color-mix(in oklab,var(--teal) 85%,transparent), transparent 65%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude}
+  .cf-card.is-focus .cf-inner{border-color:rgba(255,255,255,.16)}
+  .cf-card.is-focus .cf-inner::before, .cf-card.is-focus .cf-inner::after{opacity:1}
+  .cf-card.is-focus .cf-inner .glow{opacity:.6}
+
+  .swatch{display:inline-grid; place-items:center; width:42px; height:42px; border-radius:14px; color:#000; transform:translateZ(40px)}
+  .swatch svg{width:19px; height:19px}
+  .s-lime{background:var(--lime)} .s-purple{background:var(--purple)} .s-teal{background:var(--teal)}
+  .s-pink{background:var(--pink)} .s-blue{background:var(--blue); color:#fff} .s-mint{background:var(--mint)}
+  .chead{display:flex; align-items:flex-start; justify-content:space-between}
+  .arrow{color:var(--muted); transition:.25s}
+  .cf-card.is-focus .arrow{color:#fff}
+  .ctitle{font-size:23px; font-weight:600; letter-spacing:-.01em; margin:16px 0 0; transform:translateZ(26px)}
+  .cbody{color:var(--muted); font-size:13px; line-height:1.55; margin:8px 0 0}
+
+  /* preview widgets */
+  .pv{margin-top:16px; border-radius:16px; background:rgba(0,0,0,.34); border:1px solid rgba(255,255,255,.06); padding:13px; transform:translateZ(18px)}
+  .pv-row{display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--muted)}
+  .live{display:inline-flex; align-items:center; gap:6px; color:var(--teal)}
+  .dot{width:6px; height:6px; border-radius:999px; background:var(--teal); animation:pulse 1.3s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .wave{display:flex; align-items:flex-end; gap:3px; height:32px; margin-top:9px}
+  .wave i{flex:1; border-radius:3px; background:var(--lime); opacity:.85; animation:bar 1.1s ease-in-out infinite}
+  @keyframes bar{0%,100%{height:18%}50%{height:100%}}
+  .quote{font-size:12px; color:rgba(255,255,255,.9); margin-top:10px}
+  .bub{max-width:84%; padding:7px 10px; font-size:11.5px; border-radius:13px}
+  .bub.me{margin-left:auto; background:color-mix(in oklab,var(--purple) 90%,#000); color:#000; border-bottom-right-radius:5px}
+  .bub.bot{margin-right:auto; background:var(--surface2); color:rgba(255,255,255,.9); border-bottom-left-radius:5px; margin-top:7px}
+  .typing{display:flex; gap:5px; padding:7px 4px 0}
+  .typing i{width:6px; height:6px; border-radius:999px; background:rgba(138,147,143,.7); animation:bounce 1s infinite}
+  .typing i:nth-child(2){animation-delay:.12s} .typing i:nth-child(3){animation-delay:.24s}
+  @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:9px}
+  .chip{font-size:10px; padding:3px 9px; border-radius:999px}
+  .chip.t{background:color-mix(in oklab,var(--teal) 22%,transparent); color:var(--teal)}
+  .chip.l{background:color-mix(in oklab,var(--lime) 22%,transparent); color:var(--lime)}
+  .chip.p{background:color-mix(in oklab,var(--pink) 22%,transparent); color:var(--pink)}
+  .note-txt{font-size:11.5px; line-height:1.5; color:rgba(255,255,255,.85); margin-top:8px}
+  .note-txt b{color:var(--teal); font-weight:500}
+  .bar2{height:4px; border-radius:999px; background:rgba(255,255,255,.1); margin-top:8px; overflow:hidden}
+  .bar2 i{display:block; height:100%; width:60%; background:var(--pink); border-radius:999px}
+  .code{font-family:ui-monospace,Menlo,monospace; font-size:11px; color:color-mix(in oklab,var(--teal) 90%,#fff); background:rgba(0,0,0,.55); border-radius:8px; padding:7px 9px; margin-top:9px}
+  .opts{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:9px; font-size:11px}
+  .opt{padding:5px 8px; border-radius:8px; background:var(--surface2); color:var(--muted)}
+  .opt.ok{background:color-mix(in oklab,var(--green) 85%,#000); color:#000}
+  .sugg{display:flex; align-items:center; justify-content:space-between; background:var(--surface2); border-radius:9px; padding:6px 9px; font-size:11px; margin-top:8px}
+  .sugg .del{color:var(--muted); text-decoration:line-through} .sugg .add{color:var(--green)}
+  .yn{display:flex; gap:5px}
+  .yn span{width:18px; height:18px; border-radius:999px; display:grid; place-items:center; font-size:11px; color:#000}
+  .yn .y{background:color-mix(in oklab,var(--green) 85%,#000)} .yn .n{background:color-mix(in oklab,var(--red) 85%,#000)}
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:9px; text-align:center; font-size:10px; color:var(--muted)}
+  .stats div{background:var(--surface2); border-radius:9px; padding:7px 4px}
+  .stats b{display:block; font-size:16px; font-weight:600; color:#fff}
+
+  /* progress dots */
+  .cf-dots{position:absolute; bottom:30px; left:0; right:0; z-index:6; display:flex; gap:8px; justify-content:center}
+  .cf-dots i{width:7px; height:7px; border-radius:999px; background:rgba(255,255,255,.18); transition:.3s}
+  .cf-dots i.on{background:var(--teal); width:22px}
+
+  .after{padding:80px 0 110px}
+  .after h3{font-size:26px; font-weight:600; letter-spacing:-.01em}
+  .after p{color:var(--muted); font-size:14px; line-height:1.7; max-width:680px; margin-top:12px}
+  .after .kbd{font-family:ui-monospace,monospace; font-size:12px; background:var(--surface); border:1px solid rgba(255,255,255,.1); border-radius:6px; padding:2px 7px; color:var(--teal)}
+
+  /* reduced-motion / fallback row */
+  .fallback{display:none}
+  @media(prefers-reduced-motion: reduce){
+    .cf{display:none}
+    .fallback{display:block; padding:60px 0}
+    .frow{display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:10px}
+    .frow .cf-card{position:relative; left:auto; top:auto; transform:none !important; opacity:1 !important; scroll-snap-align:center; flex:0 0 300px; height:auto}
+  }
+</style>
+</head>
+<body>
+
+<section class="pad">
+  <div class="wrap">
+    <p class="eyebrow">Six tools, one buddy</p>
+    <h1>Everything you need to study, <span class="it">nothing you'd pay for.</span></h1>
+    <p>Scroll down — the features arc through a 3D track (Cleo-style). The card in the center faces you and lights up; its neighbors angle away. The focused card gets a cursor-tracking spotlight and a subtle magnetic tilt.</p>
+    <span class="scrollhint"><span class="m"></span> scroll to move through the track</span>
+  </div>
+</section>
+
+<section class="cf" id="cf">
+  <div class="cf-sticky">
+    <div class="cf-bg"></div>
+    <div class="cf-label">
+      <div class="k">LearnMate features</div>
+      <h2>Six rooms, <span class="it">one brain.</span></h2>
+    </div>
+    <div class="cf-stage" id="stage"></div>
+    <div class="cf-dots" id="dots"></div>
+  </div>
+</section>
+
+<section class="fallback">
+  <div class="wrap"><div class="frow" id="frow"></div></div>
+</section>
+
+<section class="after">
+  <div class="wrap">
+    <h3>That's the combined concept.</h3>
+    <p>Cleo's scroll-driven coverflow + the spotlight border + magnetic tilt, all in your tokens (teal/lime/purple, Poppins, 28px radius). Nothing above or below changes — this slots in where the current Features grid is. If you like it, I'll write the Claude Code handoff to build it in <span class="kbd">_landing/LandingPage.tsx</span> as a scroll-pinned section with the <span class="kbd">Reveal</span> component and a reduced-motion fallback (the plain swipe row you'd see if you enable "reduce motion").</p>
+  </div>
+</section>
+
+<script>
+  const I = {
+    mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg>',
+    chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+    book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+    spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>',
+    file:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+    lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+    arrow:'<svg class="arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>'
+  };
+  const PV = {
+    talk:`<div class="pv"><div class="pv-row"><span>Talk · live</span><span class="live"><span class="dot"></span>listening</span></div>
+      <div class="wave">${Array.from({length:20}).map((_,i)=>`<i style="animation-delay:${(i*0.06).toFixed(2)}s"></i>`).join('')}</div>
+      <div class="quote">"Explain mitochondria like I'm five"</div></div>`,
+    chat:`<div class="pv"><div class="bub me">Why does merge sort beat bubble sort?</div>
+      <div class="bub bot">It splits the array O(log n) times, then merges in O(n) — O(n log n) vs bubble's O(n²)…</div>
+      <div class="typing"><i></i><i></i><i></i></div></div>`,
+    notes:`<div class="pv"><div class="pv-row"><span>Python class · auto-transcribed</span></div>
+      <div class="note-txt">Decorators wrap a function with extra behavior without modifying its body. Use <b>@cache</b> for memoization…</div>
+      <div class="chips"><span class="chip t">Summarize</span><span class="chip l">Redo</span><span class="chip p">Make quiz</span></div></div>`,
+    quiz:`<div class="pv"><div class="pv-row"><span>Python Quiz</span><span>3 / 5</span></div>
+      <div class="bar2"><i></i></div><div class="code">print(3 * "abc")</div>
+      <div class="opts"><span class="opt ok">"abcabcabc"</span><span class="opt">9</span><span class="opt">"abc3"</span><span class="opt">Error</span></div></div>`,
+    research:`<div class="pv"><div class="pv-row"><span>Suggestions</span><span style="color:var(--blue)">30 / 100</span></div>
+      <div class="sugg"><span><span class="del">independant</span> <span class="add">independent</span></span><span class="yn"><span class="y">✓</span><span class="n">×</span></span></div>
+      <div class="sugg"><span><span class="del">recieve</span> <span class="add">receive</span></span><span class="yn"><span class="y">✓</span><span class="n">×</span></span></div></div>`,
+    privacy:`<div class="pv"><div class="pv-row"><span>Stored on this device · IndexedDB</span></div>
+      <div class="stats"><div><b>42</b>notes</div><div><b>11</b>quizzes</div><div><b>5</b>chats</div></div></div>`
+  };
+  const F = [
+    {key:'talk', tone:'lime', icon:I.mic, title:'Talk with Bot', body:'Press once. Talk. Hear it back. Real-time speech in, real-time voice out.'},
+    {key:'chat', tone:'purple', icon:I.chat, title:'Chat with Bot', body:'Streamed answers, code-aware, full history. Pin a chat to keep grinding.'},
+    {key:'notes', tone:'teal', icon:I.book, title:'Take Notes', body:'Speak. We transcribe. Then summarize, rewrite, or turn it into a quiz — one tap.'},
+    {key:'quiz', tone:'pink', icon:I.spark, title:'Quiz with Bot', body:'Five sharp MCQs from any note or topic. Instant feedback + rationale.'},
+    {key:'research', tone:'blue', icon:I.file, title:'Research Assistant', body:'Quality score, inline edits, grammar fixes you accept one at a time.'},
+    {key:'privacy', tone:'mint', icon:I.lock, title:'Local & Private', body:'No login required. Notes, quizzes, and chats live in your browser.'}
+  ];
+  const toneVar = {lime:'var(--lime)',purple:'var(--purple)',teal:'var(--teal)',pink:'var(--pink)',blue:'var(--blue)',mint:'var(--mint)'};
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+  const stage=document.getElementById('stage');
+  const dotsEl=document.getElementById('dots');
+  const frow=document.getElementById('frow');
+  const cards=[];
+  F.forEach((f,i)=>{
+    const card=document.createElement('div');
+    card.className='cf-card';
+    card.innerHTML=`<div class="cf-inner"><div class="glow" style="background:${toneVar[f.tone]}"></div>
+      <div class="chead"><span class="swatch s-${f.tone}">${f.icon}</span>${I.arrow}</div>
+      <div class="ctitle">${f.title}</div><div class="cbody">${f.body}</div>${PV[f.key]}</div>`;
+    stage.appendChild(card);
+    const inner=card.querySelector('.cf-inner');
+    inner.addEventListener('pointermove',e=>{
+      const r=inner.getBoundingClientRect();
+      inner.style.setProperty('--mx',(e.clientX-r.left)+'px');
+      inner.style.setProperty('--my',(e.clientY-r.top)+'px');
+      if(card.classList.contains('is-focus')){
+        const px=(e.clientX-r.left)/r.width-0.5, py=(e.clientY-r.top)/r.height-0.5;
+        inner.style.transform=`rotateY(${px*8}deg) rotateX(${-py*8}deg)`;
+      }
+    });
+    inner.addEventListener('pointerleave',()=>{ inner.style.transform=''; });
+    cards.push({card,inner});
+    // dot
+    const d=document.createElement('i'); if(i===0) d.className='on'; dotsEl.appendChild(d);
+    // fallback clone
+    const fc=card.cloneNode(true); frow.appendChild(fc);
+  });
+
+  const n=F.length;
+  let SPACING=360;
+  function sizing(){ SPACING = Math.min(360, Math.max(210, window.innerWidth*0.34)); }
+  let focus=0;
+  function render(){
+    cards.forEach((c,i)=>{
+      const o=i-focus, ao=Math.abs(o);
+      const x=o*SPACING;
+      const ry=clamp(-o*26,-44,44);
+      const tz=-ao*150;
+      const sc=Math.max(0.74,1-ao*0.12);
+      const op=Math.max(0.14,1-ao*0.42);
+      c.card.style.transform=`translate(-50%,-50%) translateX(${x}px) translateZ(${tz}px) rotateY(${ry}deg) scale(${sc})`;
+      c.card.style.opacity=op;
+      c.card.style.zIndex=String(100-Math.round(ao*10));
+      const f=ao<0.5;
+      c.card.classList.toggle('is-focus',f);
+      if(!f){ c.inner.style.transform=''; }
+    });
+    [...dotsEl.children].forEach((d,i)=>d.classList.toggle('on', Math.round(focus)===i));
+  }
+  const cf=document.getElementById('cf');
+  function onScroll(){
+    const total=cf.offsetHeight-window.innerHeight;
+    const scrolled=clamp(-cf.getBoundingClientRect().top,0,total);
+    const p= total>0 ? scrolled/total : 0;
+    focus=p*(n-1);
+    render();
+  }
+  function layout(){
+    sizing();
+    // scroll length: ~ one screen of travel per card
+    cf.style.height = (n*55 + 60) + 'vh';
+    onScroll();
+  }
+  if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    layout();
+    window.addEventListener('scroll',onScroll,{passive:true});
+    window.addEventListener('resize',layout);
+  }
+</script>
+</body>
+</html>

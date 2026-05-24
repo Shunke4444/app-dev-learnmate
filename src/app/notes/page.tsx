@@ -33,6 +33,11 @@ import {
   updateNoteSession,
   type NoteSession,
 } from "@/lib/db/sync";
+import {
+  saveNoteAudio,
+  setNoteAttachmentTranscriptStatus,
+  UploadError,
+} from "@/lib/storage/uploads";
 
 type AiAction = "summarize" | "redo" | null;
 
@@ -226,10 +231,34 @@ export default function NotesPage() {
 
     setUploading(true);
     setErrorNote(null);
+
+    // Storage attachment is auth-only: guests + offline users skip the upload
+    // and still get transcription, so the feature degrades gracefully.
+    const noteIdStr = typeof session.id === "string" ? session.id : null;
+    let attachmentPath: string | null = null;
+    if (noteIdStr) {
+      try {
+        const result = await saveNoteAudio(noteIdStr, file);
+        attachmentPath = result.path;
+      } catch (e) {
+        if (e instanceof UploadError && e.code !== "no_auth") {
+          setErrorNote(`Couldn't save audio: ${e.message}`);
+        }
+      }
+    }
+    const markAttachment = (
+      status: "done" | "failed" | "skipped",
+    ): void => {
+      if (attachmentPath && noteIdStr) {
+        void setNoteAttachmentTranscriptStatus(noteIdStr, attachmentPath, status);
+      }
+    };
+
     try {
       const text = await transcribeBlob(file);
       if (!text) {
         setErrorNote("No speech detected in the file.");
+        markAttachment("skipped");
         return;
       }
       const existing = liveTranscriptRef.current || session.transcript || "";
@@ -239,8 +268,10 @@ export default function NotesPage() {
       if (session.id != null) {
         await updateNoteSession(session.id, { transcript: next });
       }
+      markAttachment("done");
     } catch (e) {
       setErrorNote(`Transcription failed: ${(e as Error).message}`);
+      markAttachment("failed");
     } finally {
       setUploading(false);
     }

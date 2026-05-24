@@ -38,14 +38,10 @@ interface AuthState {
   _setHydrated: () => void;
 }
 
-const GUEST_KEY = "learnmate-guest";
+import { uid } from "@/lib/util/id";
+import { clearCachedPrefs } from "@/lib/db/preferences";
 
-function uid(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `u_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
-}
+const GUEST_KEY = "learnmate-guest";
 
 function nameFromEmail(email: string): string {
   const local = email.split("@")[0] ?? "User";
@@ -216,6 +212,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
 
   signOut: async () => {
     saveGuest(null);
+    clearCachedPrefs();
     if (hasSupabaseConfig()) {
       try {
         await client().auth.signOut();

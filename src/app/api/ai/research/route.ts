@@ -6,6 +6,7 @@ import {
 } from "@/lib/ai/schemas";
 import { jsonChat, OpenRouterError } from "@/lib/ai/openrouter";
 import { hasApiKey } from "@/lib/ai/models";
+import { readCache, writeCache } from "@/lib/ai/cache";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,20 @@ export async function POST(request: Request) {
     );
   }
 
+  const cacheInput = { text: parsed.data.text.trim() };
+  const cached = await readCache<ResearchPayload>("research", "research", cacheInput);
+  if (cached.hit) {
+    return Response.json(
+      { ...cached.data, model: cached.model, cached: true },
+      {
+        headers: {
+          "X-LearnMate-Model": cached.model,
+          "X-LearnMate-Cache": "hit",
+        },
+      },
+    );
+  }
+
   const messages: ChatMessage[] = [
     { role: "system", content: SYSTEM },
     {
@@ -75,9 +90,16 @@ export async function POST(request: Request) {
       );
     }
 
+    void writeCache("research", "research", cacheInput, validated.data, model);
+
     return Response.json(
       { ...validated.data, model },
-      { headers: { "X-LearnMate-Model": model } },
+      {
+        headers: {
+          "X-LearnMate-Model": model,
+          "X-LearnMate-Cache": "miss",
+        },
+      },
     );
   } catch (err) {
     if ((err as { name?: string })?.name === "AbortError") {
